@@ -1,0 +1,277 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>DingWatch | 智能告警中台</title>
+    <!-- Tailwind CSS -->
+    <script src="/static/js/tailwindcss.js"></script>
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        primary: {
+                            50: '#eff6ff',
+                            100: '#dbeafe',
+                            200: '#bfdbfe',
+                            300: '#93c5fd',
+                            400: '#60a5fa',
+                            500: '#3b82f6',
+                            600: '#2563eb',
+                            700: '#1d4ed8',
+                            800: '#1e40af',
+                            900: '#1e3a8a',
+                        },
+                        slate: {
+                            50: '#f8fafc',
+                            100: '#f1f5f9',
+                            200: '#e2e8f0',
+                            300: '#cbd5e1',
+                            400: '#94a3b8',
+                            500: '#64748b',
+                            600: '#475569',
+                            700: '#334155',
+                            800: '#1e293b',
+                            900: '#0f172a',
+                        }
+                    },
+                    fontFamily: {
+                        mono: ['JetBrains Mono', 'Menlo', 'Monaco', 'Courier New', 'monospace'],
+                    }
+                }
+            }
+        }
+    </script>
+    <!-- Vue 3 -->
+    <script src="/static/js/vue.global.js"></script>
+    <!-- Icons -->
+    <link rel="stylesheet" href="/static/css/remixicon.css">
+    <style>
+        /* Custom Scrollbar */
+        ::-webkit-scrollbar {
+            width: 8px;
+            height: 8px;
+        }
+        ::-webkit-scrollbar-track {
+            background: #f1f5f9; 
+        }
+        ::-webkit-scrollbar-thumb {
+            background: #cbd5e1; 
+            border-radius: 4px;
+        }
+        ::-webkit-scrollbar-thumb:hover {
+            background: #94a3b8; 
+        }
+        
+        .glass-panel {
+            background: #ffffff;
+            box-shadow: 0 1px 3px 0 rgb(0 0 0 / 0.1), 0 1px 2px -1px rgb(0 0 0 / 0.1);
+            border: 1px solid #e2e8f0;
+        }
+        
+        .fade-enter-active,
+        .fade-leave-active {
+            transition: opacity 0.2s ease;
+        }
+        
+        .fade-enter-from,
+        .fade-leave-to {
+            opacity: 0;
+        }
+        
+        [v-cloak] { display: none; }
+    </style>
+</head>
+<body class="bg-slate-50 text-slate-800 font-sans antialiased h-screen flex overflow-hidden">
+
+    <!-- MUST be first: intercept 401 before any Vue app calls fetch -->
+    <script>
+    (function() {
+        const _fetch = window.fetch;
+        window.fetch = async function(...args) {
+            const resp = await _fetch.apply(this, args);
+            const url = typeof args[0] === 'string' ? args[0] : (args[0] && args[0].url || '');
+            if (resp.status === 401 && !url.includes('/login')) {
+                window.showToast && window.showToast('登录已过期，请重新登录', 'error');
+                setTimeout(() => { window.location.href = '/login'; }, 1500);
+            }
+            return resp;
+        };
+    })();
+    </script>
+
+    <!-- Sidebar -->
+    <aside class="w-64 bg-white border-r border-slate-200 flex flex-col flex-shrink-0 transition-all duration-300 z-20 shadow-sm">
+        <div class="h-16 flex items-center px-6 border-b border-slate-100">
+            <i class="ri-radar-fill text-2xl text-primary-600 mr-3"></i>
+            <span class="text-xl font-bold text-slate-800 tracking-wider">DingWatch</span>
+        </div>
+        
+        <nav class="flex-1 px-3 py-6 space-y-1 overflow-y-auto">
+            <a href="/" class="flex items-center px-4 py-3 rounded-lg transition-colors group {% if request.url.path == '/' %}bg-primary-50 text-primary-600 font-medium{% else %}text-slate-600 hover:bg-slate-50 hover:text-slate-900{% endif %}">
+                <i class="ri-dashboard-line text-lg mr-3 {% if request.url.path == '/' %}text-primary-600{% else %}text-slate-400 group-hover:text-slate-600{% endif %}"></i>
+                <span>仪表盘</span>
+            </a>
+            
+            <div class="px-4 py-2 mt-6 text-xs font-semibold text-slate-400 uppercase tracking-wider">监控与分析</div>
+            
+            <a href="/logs" class="flex items-center px-4 py-3 rounded-lg transition-colors group {% if request.url.path == '/logs' %}bg-primary-50 text-primary-600 font-medium{% else %}text-slate-600 hover:bg-slate-50 hover:text-slate-900{% endif %}">
+                <i class="ri-file-list-3-line text-lg mr-3 {% if request.url.path == '/logs' %}text-primary-600{% else %}text-slate-400 group-hover:text-slate-600{% endif %}"></i>
+                <span>流量日志</span>
+            </a>
+
+            <a href="/health" class="flex items-center px-4 py-3 rounded-lg transition-colors group {% if request.url.path == '/health' %}bg-primary-50 text-primary-600 font-medium{% else %}text-slate-600 hover:bg-slate-50 hover:text-slate-900{% endif %}">
+                <i class="ri-heart-pulse-line text-lg mr-3 {% if request.url.path == '/health' %}text-primary-600{% else %}text-slate-400 group-hover:text-slate-600{% endif %}"></i>
+                <span>系统健康</span>
+            </a>
+
+            <div class="px-4 py-2 mt-6 text-xs font-semibold text-slate-400 uppercase tracking-wider">配置管理</div>
+            
+            <a href="/rules" class="flex items-center px-4 py-3 rounded-lg transition-colors group {% if request.url.path == '/rules' %}bg-primary-50 text-primary-600 font-medium{% else %}text-slate-600 hover:bg-slate-50 hover:text-slate-900{% endif %}">
+                <i class="ri-flow-chart text-lg mr-3 {% if request.url.path == '/rules' %}text-primary-600{% else %}text-slate-400 group-hover:text-slate-600{% endif %}"></i>
+                <span>规则引擎</span>
+            </a>
+
+            <a href="/silences" class="flex items-center px-4 py-3 rounded-lg transition-colors group {% if request.url.path == '/silences' %}bg-primary-50 text-primary-600 font-medium{% else %}text-slate-600 hover:bg-slate-50 hover:text-slate-900{% endif %}">
+                <i class="ri-volume-mute-line text-lg mr-3 {% if request.url.path == '/silences' %}text-primary-600{% else %}text-slate-400 group-hover:text-slate-600{% endif %}"></i>
+                <span>告警屏蔽</span>
+            </a>
+
+            <a href="/users" class="flex items-center px-4 py-3 rounded-lg transition-colors group {% if request.url.path == '/users' %}bg-primary-50 text-primary-600 font-medium{% else %}text-slate-600 hover:bg-slate-50 hover:text-slate-900{% endif %}">
+                <i class="ri-team-line text-lg mr-3 {% if request.url.path == '/users' %}text-primary-600{% else %}text-slate-400 group-hover:text-slate-600{% endif %}"></i>
+                <span>用户与团队</span>
+            </a>
+
+            <div class="px-4 py-2 mt-6 text-xs font-semibold text-slate-400 uppercase tracking-wider">系统</div>
+
+            <a href="/system" class="flex items-center px-4 py-3 rounded-lg transition-colors group {% if request.url.path == '/system' %}bg-primary-50 text-primary-600 font-medium{% else %}text-slate-600 hover:bg-slate-50 hover:text-slate-900{% endif %}">
+                <i class="ri-settings-4-line text-lg mr-3 {% if request.url.path == '/system' %}text-primary-600{% else %}text-slate-400 group-hover:text-slate-600{% endif %}"></i>
+                <span>系统设置</span>
+            </a>
+
+            <div class="px-4 py-2 mt-6 text-xs font-semibold text-slate-400 uppercase tracking-wider">帮助与支持</div>
+            
+            <a href="/docs" class="flex items-center px-4 py-3 rounded-lg transition-colors group {% if request.url.path.startswith('/docs') %}bg-primary-50 text-primary-600 font-medium{% else %}text-slate-600 hover:bg-slate-50 hover:text-slate-900{% endif %}">
+                <i class="ri-book-open-line text-lg mr-3 {% if request.url.path.startswith('/docs') %}text-primary-600{% else %}text-slate-400 group-hover:text-slate-600{% endif %}"></i>
+                <span>文档中心</span>
+            </a>
+        </nav>
+        
+        <div class="p-4 border-t border-slate-200 bg-slate-50/50">
+            <div class="text-[10px] text-slate-400 text-center leading-tight">
+                Powered by <a href="https://www.xyzbeta.com" target="_blank" class="font-medium text-slate-500 hover:text-primary-600 transition-colors">XyzBeta</a>
+                <br>
+                <span class="scale-90 inline-block mt-0.5 opacity-80">https://www.xyzbeta.com</span>
+            </div>
+        </div>
+    </aside>
+
+    <!-- Main Content -->
+    <main class="flex-1 flex flex-col min-w-0 overflow-hidden bg-slate-50 relative">
+        <!-- Header -->
+        <header class="h-16 bg-white border-b border-slate-200 flex items-center justify-between px-8 z-10 shadow-sm">
+            <h2 class="text-lg font-semibold text-slate-800">
+                {% block title %}Dashboard{% endblock %}
+            </h2>
+            <div class="flex items-center space-x-4">
+                <button class="p-2 text-slate-400 hover:text-slate-600 transition-colors">
+                    <i class="ri-notification-3-line text-xl"></i>
+                </button>
+                
+                <!-- Profile Dropdown -->
+                <div class="relative" id="profile-dropdown-container">
+                    <button onclick="toggleProfileDropdown()" class="flex items-center focus:outline-none">
+                        <div class="w-9 h-9 rounded-full bg-primary-100 text-primary-600 flex items-center justify-center font-bold text-sm border-2 border-white shadow-sm hover:shadow transition-all">
+                            <i class="ri-user-line"></i>
+                        </div>
+                    </button>
+                    
+                    <div id="profile-menu" class="hidden absolute right-0 mt-2 w-48 bg-white rounded-lg shadow-xl border border-slate-100 py-1 z-50 transform origin-top-right transition-all">
+                        <a href="/profile" class="block px-4 py-2 text-sm text-slate-700 hover:bg-slate-50 hover:text-primary-600">
+                            <i class="ri-user-settings-line mr-2"></i> 个人中心
+                        </a>
+                        <div class="border-t border-slate-100 my-1"></div>
+                        <button onclick="logout()" class="block w-full text-left px-4 py-2 text-sm text-red-600 hover:bg-red-50">
+                            <i class="ri-logout-box-line mr-2"></i> 退出登录
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </header>
+
+        <!-- Content Scroll Area -->
+        <div class="flex-1 overflow-y-auto p-8 relative">
+            {% block content %}{% endblock %}
+        </div>
+    </main>
+    
+    <!-- Toast Notification Container (Global) -->
+    <div id="toast-container" class="fixed top-4 right-4 z-50 flex flex-col gap-2 pointer-events-none"></div>
+
+    <script>
+        // Profile Dropdown Logic
+        function toggleProfileDropdown() {
+            const menu = document.getElementById('profile-menu');
+            menu.classList.toggle('hidden');
+        }
+
+        // Close dropdown when clicking outside
+        document.addEventListener('click', function(event) {
+            const container = document.getElementById('profile-dropdown-container');
+            const menu = document.getElementById('profile-menu');
+            if (!container.contains(event.target) && !menu.classList.contains('hidden')) {
+                menu.classList.add('hidden');
+            }
+        });
+
+        async function logout() {
+            try {
+                await fetch('logout', { method: 'POST' });
+                window.location.href = '/login';
+            } catch (e) {
+                window.location.href = '/login';
+            }
+        }
+
+        // Global Toast Utility
+        window.showToast = (message, type = 'success') => {
+            const container = document.getElementById('toast-container');
+            const toast = document.createElement('div');
+            
+            const colors = {
+                success: 'bg-white border-l-4 border-green-500 text-slate-800 shadow-lg',
+                error: 'bg-white border-l-4 border-red-500 text-slate-800 shadow-lg',
+                info: 'bg-white border-l-4 border-blue-500 text-slate-800 shadow-lg',
+                warning: 'bg-white border-l-4 border-yellow-500 text-slate-800 shadow-lg'
+            };
+            
+            const icons = {
+                success: 'ri-checkbox-circle-fill text-green-500',
+                error: 'ri-close-circle-fill text-red-500',
+                info: 'ri-information-fill text-blue-500',
+                warning: 'ri-alert-fill text-yellow-500'
+            };
+
+            toast.className = `pointer-events-auto flex items-center w-full max-w-xs p-4 mb-2 text-sm rounded-r-lg transform transition-all duration-300 translate-x-full ${colors[type]}`;
+            toast.innerHTML = `
+                <i class="${icons[type]} text-xl mr-3"></i>
+                <div class="font-medium">${message}</div>
+            `;
+            
+            container.appendChild(toast);
+            
+            // Animate in
+            requestAnimationFrame(() => {
+                toast.classList.remove('translate-x-full');
+            });
+
+            // Remove after 3s
+            setTimeout(() => {
+                toast.classList.add('translate-x-full', 'opacity-0');
+                setTimeout(() => toast.remove(), 300);
+            }, 3000);
+        };
+    </script>
+</body>
+</html>

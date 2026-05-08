@@ -1,0 +1,631 @@
+{% extends "base.html" %}
+
+{% block title %}System Settings{% endblock %}
+
+{% block content %}
+<div id="app" class="w-full">
+    <div class="glass-panel rounded-xl overflow-hidden p-8 bg-white border border-slate-200 shadow-sm">
+        <h2 class="text-2xl font-bold text-slate-800 mb-6 flex items-center">
+            <i class="ri-settings-4-line mr-3 text-primary-600"></i> 系统设置
+        </h2>
+        
+        <div class="space-y-8">
+            
+            <!-- Notification Channels -->
+            <div>
+                <div class="flex justify-between items-center mb-4 border-b border-slate-100 pb-2">
+                    <h3 class="text-lg font-medium text-slate-800">通知通道配置</h3>
+                    <button @click="openChannelModal()" class="px-3 py-1.5 bg-primary-600 hover:bg-primary-500 text-white rounded-lg text-sm font-medium transition-all shadow-sm">
+                        <i class="ri-add-line mr-1"></i> 新增通道
+                    </button>
+                </div>
+                
+                <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                    <div v-for="channel in channels" :key="channel.id" class="border rounded-lg p-4 bg-slate-50 relative hover:shadow-md transition-shadow group">
+                        <div class="flex justify-between items-start mb-2">
+                            <div class="flex items-center">
+                                <span class="bg-blue-100 text-blue-700 text-xs px-2 py-0.5 rounded mr-2 uppercase">[[ channel.type ]]</span>
+                                <h4 class="font-bold text-slate-700">[[ channel.name ]]</h4>
+                            </div>
+                            <div class="flex space-x-1">
+                                <button @click="openChannelModal(channel)" class="text-slate-400 hover:text-blue-600 p-1" title="编辑">
+                                    <i class="ri-edit-line"></i>
+                                </button>
+                                <button @click="deleteChannel(channel.id)" class="text-slate-400 hover:text-red-600 p-1" title="删除">
+                                    <i class="ri-delete-bin-line"></i>
+                                </button>
+                            </div>
+                        </div>
+                        
+                        <div :class="channel.is_enabled ? '' : 'opacity-55'" class="transition-opacity">
+                            <div class="text-xs text-slate-500 mb-3 font-mono truncate">
+                                ID: [[ channel.id ]]
+                            </div>
+
+                            <div class="flex justify-between items-center">
+                                <div class="flex items-center space-x-2">
+                                    <span v-if="defaultChannelId == channel.id" class="bg-green-100 text-green-700 text-xs px-2 py-0.5 rounded border border-green-200 flex items-center">
+                                        <i class="ri-check-line mr-1"></i> 默认通道
+                                    </span>
+                                    <button v-else @click="setDefaultChannel(channel.id)" class="text-xs text-slate-500 hover:text-primary-600 underline">
+                                        设为默认
+                                    </button>
+                                </div>
+
+                                <div class="flex items-center gap-2">
+                                    <span :class="channel.is_enabled ? 'text-green-600' : 'text-slate-400'" class="text-xs font-medium transition-colors select-none">
+                                        [[ channel.is_enabled ? '已启用' : '已禁用' ]]
+                                    </span>
+                                    <label class="relative inline-flex items-center cursor-pointer">
+                                        <input type="checkbox" v-model="channel.is_enabled" class="sr-only peer" @change="toggleChannel(channel)">
+                                        <div class="w-9 h-5 bg-slate-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-green-500"></div>
+                                    </label>
+                                </div>
+                            </div>
+                            <p v-if="!channel.is_enabled" class="text-xs text-amber-600 mt-2 flex items-center">
+                                <i class="ri-error-warning-line mr-1"></i> 已停用：匹配到此通道的告警规则将不会推送消息
+                            </p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Security & Access Control (Grouped) -->
+            <div>
+                <h3 class="text-lg font-medium text-slate-800 mb-4 border-b border-slate-100 pb-2">安全与访问控制</h3>
+                <div class="space-y-4">
+
+                    <!-- Webhook Auth -->
+                    <div class="p-4 bg-slate-50 rounded-lg border border-slate-200">
+                        <div class="flex justify-between items-start">
+                            <div>
+                                <h4 class="font-medium text-slate-700 flex items-center text-sm">
+                                    <i class="ri-shield-keyhole-line mr-2 text-primary-600"></i> Webhook 接口认证
+                                </h4>
+                                <p class="text-xs text-slate-500 mt-1 leading-relaxed">
+                                    开启后，/api/v1/webhook 接口也需要验证 X-API-Token。
+                                </p>
+                            </div>
+                            <label class="relative inline-flex items-center cursor-pointer">
+                                <input type="checkbox" v-model="security.webhook_auth_enabled" class="sr-only peer" @change="saveSecurityConfig">
+                                <div class="w-12 h-7 bg-slate-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-6 after:w-6 after:transition-all peer-checked:bg-primary-600"></div>
+                            </label>
+                        </div>
+                    </div>
+
+                    <!-- Log Retention -->
+                    <div class="p-4 bg-slate-50 rounded-lg border border-slate-200">
+                        <div class="flex justify-between items-start">
+                            <div>
+                                <h4 class="font-medium text-slate-700 flex items-center text-sm">
+                                    <i class="ri-delete-bin-2-line mr-2 text-primary-600"></i> 日志自动清理
+                                </h4>
+                                <p class="text-xs text-slate-500 mt-1 leading-relaxed">
+                                    每天自动清理超过指定天数的流量日志。
+                                </p>
+                            </div>
+                            <div class="flex items-center gap-2">
+                                <input v-model.number="security.log_retention_days" @change="saveSecurityConfig" type="number" min="1" max="365" class="w-20 px-3 py-1.5 bg-white border border-slate-200 rounded text-center text-sm outline-none focus:border-primary-500">
+                                <span class="text-xs text-slate-600">天</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Silence Retention -->
+                    <div class="p-4 bg-slate-50 rounded-lg border border-slate-200">
+                        <div class="flex justify-between items-start">
+                            <div>
+                                <h4 class="font-medium text-slate-700 flex items-center text-sm">
+                                    <i class="ri-volume-mute-line mr-2 text-yellow-500"></i> 过期屏蔽自动清理
+                                </h4>
+                                <p class="text-xs text-slate-500 mt-1 leading-relaxed">
+                                    每天凌晨自动删除超过指定天数的已过期/已取消屏蔽记录。
+                                </p>
+                            </div>
+                            <div class="flex items-center gap-2">
+                                <input v-model.number="security.silence_retention_days" @change="saveSecurityConfig" type="number" min="1" max="365" class="w-20 px-3 py-1.5 bg-white border border-slate-200 rounded text-center text-sm outline-none focus:border-primary-500">
+                                <span class="text-xs text-slate-600">天</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- API Tokens -->
+                    <div class="p-4 bg-slate-50 rounded-lg border border-slate-200">
+                        <div class="flex justify-between items-center mb-3">
+                            <h4 class="font-medium text-slate-700 flex items-center text-sm">
+                                <i class="ri-key-2-line mr-2 text-primary-600"></i> API 访问令牌
+                            </h4>
+                            <button @click="createToken" class="text-xs bg-white border border-slate-200 hover:bg-slate-50 text-slate-600 px-3 py-1.5 rounded transition-colors shadow-sm">
+                                <i class="ri-add-line"></i> 新建
+                            </button>
+                        </div>
+                        
+                        <div class="space-y-2 max-h-40 overflow-y-auto">
+                            <div v-for="token in apiTokens" :key="token.id" class="flex items-center justify-between p-2 bg-white rounded border border-slate-200 text-xs">
+                                <div>
+                                    <div class="font-medium text-slate-700">[[ token.name ]]</div>
+                                    <div class="text-slate-500 font-mono mt-0.5">[[ token.token.substring(0, 16) ]]...</div>
+                                </div>
+                                <div class="flex items-center space-x-2">
+                                    <button @click="copyToken(token.token)" class="text-slate-400 hover:text-blue-600 p-1.5 hover:bg-slate-100 rounded" title="复制">
+                                        <i class="ri-file-copy-line text-base"></i>
+                                    </button>
+                                    <button @click="deleteToken(token.id)" class="text-slate-400 hover:text-red-600 p-1.5 hover:bg-slate-100 rounded" title="删除">
+                                        <i class="ri-delete-bin-line text-base"></i>
+                                    </button>
+                                </div>
+                            </div>
+                            <div v-if="apiTokens.length === 0" class="text-center py-2 text-slate-400 text-xs">
+                                暂无 API 令牌
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Backup & Restore -->
+            <div>
+                <h3 class="text-lg font-medium text-slate-800 mb-4 border-b border-slate-100 pb-2">备份与恢复</h3>
+                <div class="bg-slate-50 p-6 rounded-lg border border-slate-200">
+                    <p class="text-sm text-slate-500 mb-4">您可以将当前的所有配置（规则、通道、人员等）导出为 JSON 文件，或从文件恢复配置。适用于环境迁移。</p>
+                    <div class="flex gap-4">
+                        <button @click="exportConfig" class="px-4 py-2 bg-white border border-slate-300 hover:bg-slate-50 text-slate-700 rounded-lg font-medium transition-all shadow-sm flex items-center">
+                            <i class="ri-download-line mr-2"></i> 导出配置
+                        </button>
+                        <div class="relative">
+                            <input type="file" ref="fileInput" @change="importConfig" class="hidden" accept=".json">
+                            <button @click="$refs.fileInput.click()" class="px-4 py-2 bg-white border border-slate-300 hover:bg-slate-50 text-slate-700 rounded-lg font-medium transition-all shadow-sm flex items-center">
+                                <i class="ri-upload-line mr-2"></i> 导入配置
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Announcement -->
+            <div>
+                <h3 class="text-lg font-medium text-slate-800 mb-4 border-b border-slate-100 pb-2">系统公告推送</h3>
+                <div class="bg-slate-50 p-6 rounded-lg border border-slate-200">
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
+                        <div>
+                            <label class="block text-sm font-medium text-slate-600 mb-2">公告标题</label>
+                            <input v-model="announcement.title" type="text" class="w-full bg-white border border-slate-200 rounded-lg px-4 py-2 text-slate-800 focus:ring-2 focus:ring-primary-500 outline-none" placeholder="例如：系统维护通知">
+                        </div>
+                        <div>
+                            <label class="block text-sm font-medium text-slate-600 mb-2">推送通道</label>
+                            <select v-model="announcement.channel_id" class="w-full bg-white border border-slate-200 rounded-lg px-4 py-2 text-slate-800 focus:ring-2 focus:ring-primary-500 outline-none">
+                                <option :value="null">使用默认通道</option>
+                                <option v-for="c in channels" :key="c.id" :value="c.id" :disabled="!c.is_enabled">
+                                    [[ c.name ]] [[ !c.is_enabled ? '(已禁用)' : '' ]]
+                                </option>
+                            </select>
+                        </div>
+                    </div>
+                    
+                    <div class="mb-4">
+                        <label class="block text-sm font-medium text-slate-600 mb-2">公告内容 (Markdown)</label>
+                        <textarea v-model="announcement.content" rows="4" class="w-full bg-white border border-slate-200 rounded-lg px-4 py-2 text-slate-800 focus:ring-2 focus:ring-primary-500 outline-none font-mono text-sm" placeholder="请输入公告内容..."></textarea>
+                    </div>
+                    
+                    <div class="mb-4">
+                        <label class="block text-sm font-medium text-slate-600 mb-2">推送范围</label>
+                        <div class="flex gap-4 items-center">
+                            <label class="inline-flex items-center">
+                                <input type="radio" v-model="announcement.target_type" value="all" class="text-primary-600 focus:ring-primary-500">
+                                <span class="ml-2 text-sm text-slate-700">全体人员 (@所有人)</span>
+                            </label>
+                            <label class="inline-flex items-center">
+                                <input type="radio" v-model="announcement.target_type" value="team" class="text-primary-600 focus:ring-primary-500">
+                                <span class="ml-2 text-sm text-slate-700">指定团队</span>
+                            </label>
+                            <label class="inline-flex items-center">
+                                <input type="radio" v-model="announcement.target_type" value="user" class="text-primary-600 focus:ring-primary-500">
+                                <span class="ml-2 text-sm text-slate-700">指定个人</span>
+                            </label>
+                        </div>
+                    </div>
+                    
+                    <!-- Selectors -->
+                    <div v-if="announcement.target_type === 'team'" class="bg-white p-3 border border-slate-200 rounded-lg max-h-40 overflow-y-auto mb-4">
+                        <div v-if="teams.length === 0" class="text-sm text-slate-400 text-center">暂无团队数据</div>
+                        <label v-for="team in teams" :key="team.id" class="flex items-center space-x-2 p-1 hover:bg-slate-50 rounded cursor-pointer">
+                            <input type="checkbox" :value="team.id" v-model="announcement.target_ids" class="rounded text-primary-600 focus:ring-primary-500">
+                            <span class="text-sm text-slate-700">[[ team.name ]]</span>
+                        </label>
+                    </div>
+
+                    <div v-if="announcement.target_type === 'user'" class="bg-white p-3 border border-slate-200 rounded-lg max-h-40 overflow-y-auto mb-4">
+                        <div v-if="users.length === 0" class="text-sm text-slate-400 text-center">暂无用户数据</div>
+                        <label v-for="user in users" :key="user.id" class="flex items-center space-x-2 p-1 hover:bg-slate-50 rounded cursor-pointer">
+                            <input type="checkbox" :value="user.id" v-model="announcement.target_ids" class="rounded text-primary-600 focus:ring-primary-500">
+                            <span class="text-sm text-slate-700">[[ user.name ]]</span>
+                        </label>
+                    </div>
+
+                    <div class="flex justify-end">
+                        <button @click="sendAnnouncement" :disabled="isSending" class="px-4 py-2 bg-blue-600 hover:bg-blue-500 disabled:opacity-50 text-white rounded-lg font-medium transition-all shadow-sm flex items-center">
+                            <i v-if="isSending" class="ri-loader-4-line animate-spin mr-2"></i>
+                            <i v-else class="ri-send-plane-fill mr-2"></i>
+                            发送公告
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Channel Modal -->
+    <div v-if="showChannelModal" class="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
+        <div class="bg-white rounded-xl shadow-xl w-full max-w-lg p-6">
+            <h3 class="text-xl font-bold text-slate-800 mb-4">[[ isEditingChannel ? '编辑通道' : '新增通道' ]]</h3>
+            
+            <div class="space-y-4">
+                <div>
+                    <label class="block text-sm font-medium text-slate-600 mb-1">通道名称</label>
+                    <input v-model="editingChannel.name" type="text" class="w-full bg-slate-50 border border-slate-200 rounded-lg px-4 py-2 outline-none focus:ring-2 focus:ring-primary-500" placeholder="例如：运维报警群">
+                </div>
+                <div>
+                    <label class="block text-sm font-medium text-slate-600 mb-1">通道类型</label>
+                    <select v-model="editingChannel.type" class="w-full bg-slate-50 border border-slate-200 rounded-lg px-4 py-2 outline-none focus:ring-2 focus:ring-primary-500">
+                        <option value="dingtalk">钉钉群机器人 (DingTalk)</option>
+                    </select>
+                </div>
+                
+                <!-- DingTalk Config -->
+                <div v-if="editingChannel.type === 'dingtalk'" class="space-y-4 p-4 bg-slate-50 rounded-lg border border-slate-200">
+                    <div>
+                        <label class="block text-xs font-medium text-slate-500 mb-1">Webhook URL</label>
+                        <input v-model="editingConfig.webhook_url" type="text" class="w-full bg-white border border-slate-200 rounded px-3 py-1.5 text-sm outline-none focus:border-primary-500">
+                    </div>
+                    <div>
+                        <label class="block text-xs font-medium text-slate-500 mb-1">Secret</label>
+                        <input v-model="editingConfig.secret" type="password" class="w-full bg-white border border-slate-200 rounded px-3 py-1.5 text-sm outline-none focus:border-primary-500">
+                    </div>
+                    <div>
+                        <label class="block text-xs font-medium text-slate-500 mb-1">Access Token</label>
+                        <input v-model="editingConfig.access_token" type="password" class="w-full bg-white border border-slate-200 rounded px-3 py-1.5 text-sm outline-none focus:border-primary-500">
+                    </div>
+                </div>
+
+                <!-- Message Template (Advanced) -->
+                <div class="border-t border-slate-200 pt-4">
+                    <details>
+                        <summary class="text-sm font-medium text-slate-600 cursor-pointer hover:text-primary-600 select-none">
+                            <i class="ri-code-line mr-1"></i> 消息模板 (可选)
+                        </summary>
+                        <div class="mt-3 space-y-2">
+                            <p class="text-xs text-slate-500 leading-relaxed">
+                                使用 <a href="https://jinja.palletsprojects.com/" target="_blank" class="text-primary-600 underline">Jinja2</a> 模板语法。留空则使用格式对应的默认模板。
+                                可用变量: <code class="bg-slate-100 px-1 rounded text-xs">title</code>, <code class="bg-slate-100 px-1 rounded text-xs">severity</code>, <code class="bg-slate-100 px-1 rounded text-xs">message</code>, <code class="bg-slate-100 px-1 rounded text-xs">alerts</code>, <code class="bg-slate-100 px-1 rounded text-xs">source</code>, <code class="bg-slate-100 px-1 rounded text-xs">raw_data</code>
+                            </p>
+                            <textarea v-model="editingTemplate" rows="8"
+                                class="w-full bg-white border border-slate-200 rounded-lg px-4 py-2 text-slate-800 focus:ring-2 focus:ring-primary-500 outline-none font-mono text-sm"
+                                placeholder="留空使用格式对应的默认模板"></textarea>
+                        </div>
+                    </details>
+                </div>
+            </div>
+            
+            <div class="flex justify-between items-center mt-6">
+                <button @click="testChannelConfig" class="text-slate-500 hover:text-primary-600 text-sm flex items-center">
+                    <i class="ri-link-m mr-1"></i> 测试连接
+                </button>
+                <div class="flex space-x-3">
+                    <button @click="showChannelModal = false" class="px-4 py-2 text-slate-600 hover:bg-slate-100 rounded-lg transition-colors">取消</button>
+                    <button @click="saveChannel" class="px-4 py-2 bg-primary-600 hover:bg-primary-500 text-white rounded-lg shadow-sm transition-colors">保存</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+</div>
+
+<script>
+const { createApp, ref, onMounted, computed } = Vue
+
+createApp({
+    delimiters: ['[[', ']]'],
+    setup() {
+        // State
+        const channels = ref([])
+        const defaultChannelId = ref(null)
+        const security = ref({ webhook_auth_enabled: false, log_retention_days: 30, silence_retention_days: 7 })
+        const apiTokens = ref([])
+        const users = ref([])
+        const teams = ref([])
+        const announcement = ref({ title: '', content: '', target_type: 'all', target_ids: [], channel_id: null })
+        const isSending = ref(false)
+        
+        // Modal State
+        const showChannelModal = ref(false)
+        const isEditingChannel = ref(false)
+        const editingChannel = ref({ name: '', type: 'dingtalk', is_enabled: true })
+        const editingConfig = ref({ webhook_url: '', secret: '', access_token: '' })
+        const editingTemplate = ref('')
+
+        // Fetch Data
+        const fetchData = async () => {
+            await Promise.all([
+                fetchChannels(),
+                fetchDefaultChannel(),
+                fetchSystemConfig(),
+                fetchTokens(),
+                fetchUsersAndTeams()
+            ])
+        }
+        
+        const fetchChannels = async () => {
+            const res = await fetch('/api/v1/settings/channels')
+            if (res.ok) channels.value = await res.json()
+        }
+        
+        const fetchDefaultChannel = async () => {
+            const res = await fetch('/api/v1/settings/channels/default')
+            if (res.ok) {
+                const data = await res.json()
+                defaultChannelId.value = data.id
+            }
+        }
+
+        const fetchSystemConfig = async () => {
+            const res = await fetch('/api/v1/settings/system')
+            if (res.ok) security.value = await res.json()
+        }
+        
+        const fetchTokens = async () => {
+            const res = await fetch('/api/v1/settings/tokens')
+            if (res.ok) apiTokens.value = await res.json()
+        }
+        
+        const fetchUsersAndTeams = async () => {
+            const [usersRes, teamsRes] = await Promise.all([
+                fetch('/api/v1/users'),
+                fetch('/api/v1/teams')
+            ])
+            if (usersRes.ok) users.value = await usersRes.json()
+            if (teamsRes.ok) teams.value = await teamsRes.json()
+        }
+
+        // Channel Actions
+        const openChannelModal = (channel = null) => {
+            if (channel) {
+                isEditingChannel.value = true
+                editingChannel.value = { ...channel }
+                try {
+                    editingConfig.value = JSON.parse(channel.config)
+                } catch(e) {
+                    editingConfig.value = {}
+                }
+                editingTemplate.value = channel.message_template || ''
+            } else {
+                isEditingChannel.value = false
+                editingChannel.value = { name: '', type: 'dingtalk', is_enabled: true }
+                editingConfig.value = { webhook_url: '', secret: '', access_token: '' }
+                editingTemplate.value = ''
+            }
+            showChannelModal.value = true
+        }
+        
+        const saveChannel = async () => {
+            if(!editingChannel.value.name) return window.showToast('请输入通道名称', 'error')
+            
+            const payload = {
+                ...editingChannel.value,
+                config: JSON.stringify(editingConfig.value),
+                message_template: editingTemplate.value || null
+            }
+
+            let res
+            if (isEditingChannel.value) {
+                res = await fetch(`/api/v1/settings/channels/${editingChannel.value.id}`, {
+                    method: 'PUT',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(payload)
+                })
+            } else {
+                res = await fetch('/api/v1/settings/channels', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(payload)
+                })
+            }
+            
+            if (res.ok) {
+                window.showToast('通道已保存')
+                showChannelModal.value = false
+                fetchChannels()
+            } else {
+                window.showToast('保存失败', 'error')
+            }
+        }
+        
+        const deleteChannel = async (id) => {
+            if (!confirm("确定删除此通道吗？")) return
+            const res = await fetch(`/api/v1/settings/channels/${id}`, { method: 'DELETE' })
+            if (res.ok) {
+                window.showToast('通道已删除')
+                fetchChannels()
+                if(defaultChannelId.value === id) fetchDefaultChannel()
+            }
+        }
+        
+        const setDefaultChannel = async (id) => {
+            const res = await fetch('/api/v1/settings/channels/default', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ id })
+            })
+            if (res.ok) {
+                window.showToast('已设为默认通道')
+                fetchDefaultChannel()
+            }
+        }
+        
+        const toggleChannel = async (channel) => {
+            const previousState = !channel.is_enabled
+            const payload = {
+                name: channel.name,
+                type: channel.type,
+                config: channel.config,
+                is_enabled: channel.is_enabled,
+                message_template: channel.message_template || null
+            }
+            try {
+                const res = await fetch(`/api/v1/settings/channels/${channel.id}`, {
+                    method: 'PUT',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(payload)
+                })
+                if (res.ok) {
+                    window.showToast(`通道已${channel.is_enabled ? '启用' : '停用'}`)
+                } else {
+                    // Revert on failure
+                    channel.is_enabled = previousState
+                    window.showToast('操作失败，请重试', 'error')
+                }
+            } catch (e) {
+                channel.is_enabled = previousState
+                window.showToast('网络错误', 'error')
+            }
+        }
+        
+        const testChannelConfig = async () => {
+             const payload = {
+                ...editingChannel.value,
+                config: JSON.stringify(editingConfig.value),
+                message_template: editingTemplate.value || null
+            }
+            const res = await fetch('/api/v1/settings/channels/test', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(payload)
+            })
+            const data = await res.json()
+            if (res.ok) window.showToast('测试成功')
+            else window.showToast('测试失败: ' + (data.detail || 'Error'), 'error')
+        }
+
+        // Security & Tokens
+        const saveSecurityConfig = async () => {
+            const res = await fetch('/api/v1/settings/system', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(security.value)
+            })
+            if (res.ok) window.showToast('安全设置已更新')
+            else {
+                window.showToast('更新失败', 'error')
+                fetchSystemConfig()
+            }
+        }
+        
+        const createToken = async () => {
+            const name = prompt("请输入令牌名称:")
+            if (!name) return
+            const res = await fetch('/api/v1/settings/tokens', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ name })
+            })
+            if (res.ok) {
+                fetchTokens()
+                window.showToast('令牌已创建')
+            }
+        }
+        
+        const deleteToken = async (id) => {
+            if (!confirm("确定删除此令牌吗？")) return
+            const res = await fetch(`/api/v1/settings/tokens/${id}`, { method: 'DELETE' })
+            if (res.ok) {
+                fetchTokens()
+                window.showToast('令牌已删除')
+            }
+        }
+        
+        const copyToken = (token) => {
+            navigator.clipboard.writeText(token)
+            window.showToast('Token 已复制')
+        }
+
+        // Backup & Restore
+        const exportConfig = async () => {
+            window.open('/api/v1/settings/export', '_blank')
+        }
+        
+        const importConfig = async (event) => {
+            const file = event.target.files[0]
+            if (!file) return
+            
+            if(!confirm("导入操作将添加新的配置。确认继续吗？")) {
+                event.target.value = ''
+                return
+            }
+            
+            const reader = new FileReader()
+            reader.onload = async (e) => {
+                try {
+                    const json = JSON.parse(e.target.result)
+                    const res = await fetch('/api/v1/settings/import', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify(json)
+                    })
+                    const data = await res.json()
+                    if (res.ok) {
+                        window.showToast('导入成功')
+                        fetchData()
+                    } else {
+                        window.showToast('导入失败: ' + data.detail, 'error')
+                    }
+                } catch (err) {
+                    window.showToast('文件格式错误', 'error')
+                }
+                event.target.value = ''
+            }
+            reader.readAsText(file)
+        }
+
+        // Announcement
+        const sendAnnouncement = async () => {
+            if (!announcement.value.title || !announcement.value.content) {
+                window.showToast('请填写完整公告信息', 'error')
+                return
+            }
+            if(!confirm('确定要发送此公告吗？')) return
+            
+            isSending.value = true
+            try {
+                const res = await fetch('/api/v1/settings/announcement', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(announcement.value)
+                })
+                const data = await res.json()
+                if (res.ok) {
+                    window.showToast(`公告发送成功`)
+                    announcement.value.title = ''
+                    announcement.value.content = ''
+                } else {
+                    window.showToast('发送失败: ' + (data.detail || 'Error'), 'error')
+                }
+            } catch (e) {
+                window.showToast('网络错误', 'error')
+            } finally {
+                isSending.value = false
+            }
+        }
+
+        onMounted(() => {
+            fetchData()
+        })
+
+        return {
+            channels, defaultChannelId, security, apiTokens, announcement, users, teams, isSending,
+            showChannelModal, isEditingChannel, editingChannel, editingConfig, editingTemplate,
+            openChannelModal, saveChannel, deleteChannel, setDefaultChannel, toggleChannel, testChannelConfig,
+            saveSecurityConfig, createToken, deleteToken, copyToken, sendAnnouncement, exportConfig, importConfig
+        }
+    }
+}).mount('#app')
+</script>
+{% endblock %}

@@ -1,0 +1,9 @@
+*.tar.gz
+data/
+.claude/
+.trae/
+__pycache__/
+*.pyc
+.env
+.git/
+test/

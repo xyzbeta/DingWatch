@@ -1,0 +1,328 @@
+{
+	"receiver": "monitor_webhook",
+	"status": "firing",
+	"alerts": [{
+		"status": "firing",
+		"labels": {
+			"alertname": "d3529c4a-1deb-4b86-a6eb-3610b66a5643",
+			"app_kubernetes_io_instance": "dx-insight",
+			"app_kubernetes_io_name": "kube-state-metrics",
+			"daocloud_io_component": "dx-insight",
+			"dce_daocloud_io_app": "dx-insight",
+			"deployment": "adapter-testdrive-dmp-sit",
+			"instance": "10.162.63.254:8080",
+			"job": "kube-state-metrics",
+			"namespace": "dms-testdrive",
+			"ns": "kube-system",
+			"operated_by": "system",
+			"prometheus": "dx-insight/dx-insight-prometheus",
+			"ruleGroupID": "f70f648d-2308-4f43-994a-631ff4e20bac",
+			"ruleID": "d3529c4a-1deb-4b86-a6eb-3610b66a5643",
+			"service_name": "dx-insight-kube-state-metrics",
+			"severity": "info"
+		},
+		"annotations": {
+			"code": "K801",
+			"description": "Deployment dms-testdrive/adapter-testdrive-dmp-sit 状态不符合预期，真实副本数和期望副本数不匹配。"
+		},
+		"startsAt": "2026-03-02T08:18:39.987Z",
+		"endsAt": "0001-01-01T00:00:00Z",
+		"generatorURL": "http://dx-insight-prometheus.dx-insight:9090/graph?g0.expr=avg_over_time%28kube_deployment_status_replicas_unavailable%7Bdaocloud_io_component%3D%22dx-insight%22%2Cdce_daocloud_io_app%3D%22dx-insight%22%7D%5B10m%5D%29+%3E+0\u0026g0.tab=1"
+	}, {
+		"status": "firing",
+		"labels": {
+			"alertname": "d3529c4a-1deb-4b86-a6eb-3610b66a5643",
+			"app_kubernetes_io_instance": "dx-insight",
+			"app_kubernetes_io_name": "kube-state-metrics",
+			"daocloud_io_component": "dx-insight",
+			"dce_daocloud_io_app": "dx-insight",
+			"deployment": "adapter-vhs-dem-uat",
+			"instance": "10.162.63.254:8080",
+			"job": "kube-state-metrics",
+			"namespace": "dms-sales",
+			"ns": "kube-system",
+			"operated_by": "system",
+			"prometheus": "dx-insight/dx-insight-prometheus",
+			"ruleGroupID": "f70f648d-2308-4f43-994a-631ff4e20bac",
+			"ruleID": "d3529c4a-1deb-4b86-a6eb-3610b66a5643",
+			"service_name": "dx-insight-kube-state-metrics",
+			"severity": "info"
+		},
+		"annotations": {
+			"code": "K801",
+			"description": "Deployment dms-sales/adapter-vhs-dem-uat 状态不符合预期，真实副本数和期望副本数不匹配。"
+		},
+		"startsAt": "2025-08-28T06:02:39.987Z",
+		"endsAt": "0001-01-01T00:00:00Z",
+		"generatorURL": "http://dx-insight-prometheus.dx-insight:9090/graph?g0.expr=avg_over_time%28kube_deployment_status_replicas_unavailable%7Bdaocloud_io_component%3D%22dx-insight%22%2Cdce_daocloud_io_app%3D%22dx-insight%22%7D%5B10m%5D%29+%3E+0\u0026g0.tab=1"
+	}, {
+		"status": "firing",
+		"labels": {
+			"alertname": "d3529c4a-1deb-4b86-a6eb-3610b66a5643",
+			"app_kubernetes_io_instance": "dx-insight",
+			"app_kubernetes_io_name": "kube-state-metrics",
+			"daocloud_io_component": "dx-insight",
+			"dce_daocloud_io_app": "dx-insight",
+			"deployment": "adapter-vhs-icm-uat",
+			"instance": "10.162.63.254:8080",
+			"job": "kube-state-metrics",
+			"namespace": "dms-sales",
+			"ns": "kube-system",
+			"operated_by": "system",
+			"prometheus": "dx-insight/dx-insight-prometheus",
+			"ruleGroupID": "f70f648d-2308-4f43-994a-631ff4e20bac",
+			"ruleID": "d3529c4a-1deb-4b86-a6eb-3610b66a5643",
+			"service_name": "dx-insight-kube-state-metrics",
+			"severity": "info"
+		},
+		"annotations": {
+			"code": "K801",
+			"description": "Deployment dms-sales/adapter-vhs-icm-uat 状态不符合预期，真实副本数和期望副本数不匹配。"
+		},
+		"startsAt": "2025-08-28T06:02:39.987Z",
+		"endsAt": "0001-01-01T00:00:00Z",
+		"generatorURL": "http://dx-insight-prometheus.dx-insight:9090/graph?g0.expr=avg_over_time%28kube_deployment_status_replicas_unavailable%7Bdaocloud_io_component%3D%22dx-insight%22%2Cdce_daocloud_io_app%3D%22dx-insight%22%7D%5B10m%5D%29+%3E+0\u0026g0.tab=1"
+	}, {
+		"status": "firing",
+		"labels": {
+			"alertname": "d3529c4a-1deb-4b86-a6eb-3610b66a5643",
+			"app_kubernetes_io_instance": "dx-insight",
+			"app_kubernetes_io_name": "kube-state-metrics",
+			"daocloud_io_component": "dx-insight",
+			"dce_daocloud_io_app": "dx-insight",
+			"deployment": "adapter-vhs-slim-uat",
+			"instance": "10.162.63.254:8080",
+			"job": "kube-state-metrics",
+			"namespace": "dms-sales",
+			"ns": "kube-system",
+			"operated_by": "system",
+			"prometheus": "dx-insight/dx-insight-prometheus",
+			"ruleGroupID": "f70f648d-2308-4f43-994a-631ff4e20bac",
+			"ruleID": "d3529c4a-1deb-4b86-a6eb-3610b66a5643",
+			"service_name": "dx-insight-kube-state-metrics",
+			"severity": "info"
+		},
+		"annotations": {
+			"code": "K801",
+			"description": "Deployment dms-sales/adapter-vhs-slim-uat 状态不符合预期，真实副本数和期望副本数不匹配。"
+		},
+		"startsAt": "2025-11-03T07:42:09.987Z",
+		"endsAt": "0001-01-01T00:00:00Z",
+		"generatorURL": "http://dx-insight-prometheus.dx-insight:9090/graph?g0.expr=avg_over_time%28kube_deployment_status_replicas_unavailable%7Bdaocloud_io_component%3D%22dx-insight%22%2Cdce_daocloud_io_app%3D%22dx-insight%22%7D%5B10m%5D%29+%3E+0\u0026g0.tab=1"
+	}, {
+		"status": "firing",
+		"labels": {
+			"alertname": "d3529c4a-1deb-4b86-a6eb-3610b66a5643",
+			"app_kubernetes_io_instance": "dx-insight",
+			"app_kubernetes_io_name": "kube-state-metrics",
+			"daocloud_io_component": "dx-insight",
+			"dce_daocloud_io_app": "dx-insight",
+			"deployment": "agg-srv-central-dev",
+			"instance": "10.162.63.254:8080",
+			"job": "kube-state-metrics",
+			"namespace": "dms-srv",
+			"ns": "kube-system",
+			"operated_by": "system",
+			"prometheus": "dx-insight/dx-insight-prometheus",
+			"ruleGroupID": "f70f648d-2308-4f43-994a-631ff4e20bac",
+			"ruleID": "d3529c4a-1deb-4b86-a6eb-3610b66a5643",
+			"service_name": "dx-insight-kube-state-metrics",
+			"severity": "info"
+		},
+		"annotations": {
+			"code": "K801",
+			"description": "Deployment dms-srv/agg-srv-central-dev 状态不符合预期，真实副本数和期望副本数不匹配。"
+		},
+		"startsAt": "2026-04-07T16:01:09.987Z",
+		"endsAt": "0001-01-01T00:00:00Z",
+		"generatorURL": "http://dx-insight-prometheus.dx-insight:9090/graph?g0.expr=avg_over_time%28kube_deployment_status_replicas_unavailable%7Bdaocloud_io_component%3D%22dx-insight%22%2Cdce_daocloud_io_app%3D%22dx-insight%22%7D%5B10m%5D%29+%3E+0\u0026g0.tab=1"
+	}, {
+		"status": "firing",
+		"labels": {
+			"alertname": "d3529c4a-1deb-4b86-a6eb-3610b66a5643",
+			"app_kubernetes_io_instance": "dx-insight",
+			"app_kubernetes_io_name": "kube-state-metrics",
+			"daocloud_io_component": "dx-insight",
+			"dce_daocloud_io_app": "dx-insight",
+			"deployment": "bff-parts-backend-dev",
+			"instance": "10.162.63.254:8080",
+			"job": "kube-state-metrics",
+			"namespace": "dms-parts",
+			"ns": "kube-system",
+			"operated_by": "system",
+			"prometheus": "dx-insight/dx-insight-prometheus",
+			"ruleGroupID": "f70f648d-2308-4f43-994a-631ff4e20bac",
+			"ruleID": "d3529c4a-1deb-4b86-a6eb-3610b66a5643",
+			"service_name": "dx-insight-kube-state-metrics",
+			"severity": "info"
+		},
+		"annotations": {
+			"code": "K801",
+			"description": "Deployment dms-parts/bff-parts-backend-dev 状态不符合预期，真实副本数和期望副本数不匹配。"
+		},
+		"startsAt": "2025-11-03T07:42:09.987Z",
+		"endsAt": "0001-01-01T00:00:00Z",
+		"generatorURL": "http://dx-insight-prometheus.dx-insight:9090/graph?g0.expr=avg_over_time%28kube_deployment_status_replicas_unavailable%7Bdaocloud_io_component%3D%22dx-insight%22%2Cdce_daocloud_io_app%3D%22dx-insight%22%7D%5B10m%5D%29+%3E+0\u0026g0.tab=1"
+	}, {
+		"status": "firing",
+		"labels": {
+			"alertname": "d3529c4a-1deb-4b86-a6eb-3610b66a5643",
+			"app_kubernetes_io_instance": "dx-insight",
+			"app_kubernetes_io_name": "kube-state-metrics",
+			"daocloud_io_component": "dx-insight",
+			"dce_daocloud_io_app": "dx-insight",
+			"deployment": "bff-srv-backend-dev",
+			"instance": "10.162.63.254:8080",
+			"job": "kube-state-metrics",
+			"namespace": "dms-srv",
+			"ns": "kube-system",
+			"operated_by": "system",
+			"prometheus": "dx-insight/dx-insight-prometheus",
+			"ruleGroupID": "f70f648d-2308-4f43-994a-631ff4e20bac",
+			"ruleID": "d3529c4a-1deb-4b86-a6eb-3610b66a5643",
+			"service_name": "dx-insight-kube-state-metrics",
+			"severity": "info"
+		},
+		"annotations": {
+			"code": "K801",
+			"description": "Deployment dms-srv/bff-srv-backend-dev 状态不符合预期，真实副本数和期望副本数不匹配。"
+		},
+		"startsAt": "2026-05-07T06:38:39.987Z",
+		"endsAt": "0001-01-01T00:00:00Z",
+		"generatorURL": "http://dx-insight-prometheus.dx-insight:9090/graph?g0.expr=avg_over_time%28kube_deployment_status_replicas_unavailable%7Bdaocloud_io_component%3D%22dx-insight%22%2Cdce_daocloud_io_app%3D%22dx-insight%22%7D%5B10m%5D%29+%3E+0\u0026g0.tab=1"
+	}, {
+		"status": "firing",
+		"labels": {
+			"alertname": "d3529c4a-1deb-4b86-a6eb-3610b66a5643",
+			"app_kubernetes_io_instance": "dx-insight",
+			"app_kubernetes_io_name": "kube-state-metrics",
+			"daocloud_io_component": "dx-insight",
+			"dce_daocloud_io_app": "dx-insight",
+			"deployment": "gateway-gms-open-perf",
+			"instance": "10.162.63.254:8080",
+			"job": "kube-state-metrics",
+			"namespace": "dms-gms",
+			"ns": "kube-system",
+			"operated_by": "system",
+			"prometheus": "dx-insight/dx-insight-prometheus",
+			"ruleGroupID": "f70f648d-2308-4f43-994a-631ff4e20bac",
+			"ruleID": "d3529c4a-1deb-4b86-a6eb-3610b66a5643",
+			"service_name": "dx-insight-kube-state-metrics",
+			"severity": "info"
+		},
+		"annotations": {
+			"code": "K801",
+			"description": "Deployment dms-gms/gateway-gms-open-perf 状态不符合预期，真实副本数和期望副本数不匹配。"
+		},
+		"startsAt": "2025-10-30T11:59:09.987Z",
+		"endsAt": "0001-01-01T00:00:00Z",
+		"generatorURL": "http://dx-insight-prometheus.dx-insight:9090/graph?g0.expr=avg_over_time%28kube_deployment_status_replicas_unavailable%7Bdaocloud_io_component%3D%22dx-insight%22%2Cdce_daocloud_io_app%3D%22dx-insight%22%7D%5B10m%5D%29+%3E+0\u0026g0.tab=1"
+	}, {
+		"status": "firing",
+		"labels": {
+			"alertname": "d3529c4a-1deb-4b86-a6eb-3610b66a5643",
+			"app_kubernetes_io_instance": "dx-insight",
+			"app_kubernetes_io_name": "kube-state-metrics",
+			"daocloud_io_component": "dx-insight",
+			"dce_daocloud_io_app": "dx-insight",
+			"deployment": "loader-dms-auth-edu",
+			"instance": "10.162.63.254:8080",
+			"job": "kube-state-metrics",
+			"namespace": "dms-sales",
+			"ns": "kube-system",
+			"operated_by": "system",
+			"prometheus": "dx-insight/dx-insight-prometheus",
+			"ruleGroupID": "f70f648d-2308-4f43-994a-631ff4e20bac",
+			"ruleID": "d3529c4a-1deb-4b86-a6eb-3610b66a5643",
+			"service_name": "dx-insight-kube-state-metrics",
+			"severity": "info"
+		},
+		"annotations": {
+			"code": "K801",
+			"description": "Deployment dms-sales/loader-dms-auth-edu 状态不符合预期，真实副本数和期望副本数不匹配。"
+		},
+		"startsAt": "2025-08-28T06:02:39.987Z",
+		"endsAt": "0001-01-01T00:00:00Z",
+		"generatorURL": "http://dx-insight-prometheus.dx-insight:9090/graph?g0.expr=avg_over_time%28kube_deployment_status_replicas_unavailable%7Bdaocloud_io_component%3D%22dx-insight%22%2Cdce_daocloud_io_app%3D%22dx-insight%22%7D%5B10m%5D%29+%3E+0\u0026g0.tab=1"
+	}, {
+		"status": "firing",
+		"labels": {
+			"alertname": "d3529c4a-1deb-4b86-a6eb-3610b66a5643",
+			"app_kubernetes_io_instance": "dx-insight",
+			"app_kubernetes_io_name": "kube-state-metrics",
+			"daocloud_io_component": "dx-insight",
+			"dce_daocloud_io_app": "dx-insight",
+			"deployment": "nginx-test0505-nginx",
+			"instance": "10.162.63.254:8080",
+			"job": "kube-state-metrics",
+			"namespace": "test123",
+			"ns": "kube-system",
+			"operated_by": "system",
+			"prometheus": "dx-insight/dx-insight-prometheus",
+			"ruleGroupID": "f70f648d-2308-4f43-994a-631ff4e20bac",
+			"ruleID": "d3529c4a-1deb-4b86-a6eb-3610b66a5643",
+			"service_name": "dx-insight-kube-state-metrics",
+			"severity": "info"
+		},
+		"annotations": {
+			"code": "K801",
+			"description": "Deployment test123/nginx-test0505-nginx 状态不符合预期，真实副本数和期望副本数不匹配。"
+		},
+		"startsAt": "2025-08-28T06:02:39.987Z",
+		"endsAt": "0001-01-01T00:00:00Z",
+		"generatorURL": "http://dx-insight-prometheus.dx-insight:9090/graph?g0.expr=avg_over_time%28kube_deployment_status_replicas_unavailable%7Bdaocloud_io_component%3D%22dx-insight%22%2Cdce_daocloud_io_app%3D%22dx-insight%22%7D%5B10m%5D%29+%3E+0\u0026g0.tab=1"
+	}, {
+		"status": "firing",
+		"labels": {
+			"alertname": "d3529c4a-1deb-4b86-a6eb-3610b66a5643",
+			"app_kubernetes_io_instance": "dx-insight",
+			"app_kubernetes_io_name": "kube-state-metrics",
+			"daocloud_io_component": "dx-insight",
+			"dce_daocloud_io_app": "dx-insight",
+			"deployment": "spring-boot-sample-spring-boot-sample",
+			"instance": "10.162.63.254:8080",
+			"job": "kube-state-metrics",
+			"namespace": "d100k0-bd-lan",
+			"ns": "kube-system",
+			"operated_by": "system",
+			"prometheus": "dx-insight/dx-insight-prometheus",
+			"ruleGroupID": "f70f648d-2308-4f43-994a-631ff4e20bac",
+			"ruleID": "d3529c4a-1deb-4b86-a6eb-3610b66a5643",
+			"service_name": "dx-insight-kube-state-metrics",
+			"severity": "info"
+		},
+		"annotations": {
+			"code": "K801",
+			"description": "Deployment d100k0-bd-lan/spring-boot-sample-spring-boot-sample 状态不符合预期，真实副本数和期望副本数不匹配。"
+		},
+		"startsAt": "2025-08-28T06:02:39.987Z",
+		"endsAt": "0001-01-01T00:00:00Z",
+		"generatorURL": "http://dx-insight-prometheus.dx-insight:9090/graph?g0.expr=avg_over_time%28kube_deployment_status_replicas_unavailable%7Bdaocloud_io_component%3D%22dx-insight%22%2Cdce_daocloud_io_app%3D%22dx-insight%22%7D%5B10m%5D%29+%3E+0\u0026g0.tab=1"
+	}],
+	"groupLabels": {
+		"alertname": "d3529c4a-1deb-4b86-a6eb-3610b66a5643",
+		"instance": "10.162.63.254:8080"
+	},
+	"commonLabels": {
+		"alertname": "d3529c4a-1deb-4b86-a6eb-3610b66a5643",
+		"app_kubernetes_io_instance": "dx-insight",
+		"app_kubernetes_io_name": "kube-state-metrics",
+		"daocloud_io_component": "dx-insight",
+		"dce_daocloud_io_app": "dx-insight",
+		"instance": "10.162.63.254:8080",
+		"job": "kube-state-metrics",
+		"ns": "kube-system",
+		"operated_by": "system",
+		"prometheus": "dx-insight/dx-insight-prometheus",
+		"ruleGroupID": "f70f648d-2308-4f43-994a-631ff4e20bac",
+		"ruleID": "d3529c4a-1deb-4b86-a6eb-3610b66a5643",
+		"service_name": "dx-insight-kube-state-metrics",
+		"severity": "info"
+	},
+	"commonAnnotations": {
+		"code": "K801"
+	},
+	"externalURL": "http://dx-insight-alertmanager.dx-insight:9093",
+	"version": "4",
+	"groupKey": "{}:{alertname=\"d3529c4a-1deb-4b86-a6eb-3610b66a5643\", instance=\"10.162.63.254:8080\"}"
+}

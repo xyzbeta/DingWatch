@@ -1,0 +1,318 @@
+{% extends "base.html" %}
+
+{% block title %}Alert Silencing{% endblock %}
+
+{% block content %}
+<div id="app" class="w-full">
+    <div class="rounded-xl overflow-hidden p-8 bg-white border border-slate-200 shadow-sm">
+        <div class="flex justify-between items-center mb-6">
+            <div>
+                <h2 class="text-2xl font-bold text-slate-800 flex items-center">
+                    <i class="ri-volume-mute-line mr-3 text-yellow-500"></i> 告警屏蔽
+                </h2>
+                <p class="text-sm text-slate-500 mt-1">发版或维护时临时静默告警。屏蔽在规则匹配之后、钉钉发送之前生效。</p>
+            </div>
+            <button @click="openEditor()" class="px-4 py-2.5 bg-yellow-500 hover:bg-yellow-400 text-white rounded-lg font-medium transition-all shadow-sm flex items-center">
+                <i class="ri-add-line mr-1.5"></i> 新增屏蔽
+            </button>
+        </div>
+
+        <div v-if="silences.length === 0" class="text-center py-16 text-sm text-slate-400 bg-slate-50 rounded-xl border border-dashed border-slate-200">
+            <i class="ri-volume-up-line text-5xl block mb-4 text-slate-300"></i>
+            暂无屏蔽规则
+            <br>
+            <span class="text-xs mt-1">点击右上角「新增屏蔽」创建第一条规则</span>
+        </div>
+
+        <div class="space-y-4">
+            <div v-for="s in sortedSilences" :key="s.id"
+                 :class="['border-2 rounded-xl p-5 transition-all',
+                          isActive(s) ? 'bg-yellow-50/50 border-yellow-300 shadow-sm' :
+                          !s.is_active ? 'bg-slate-50 border-slate-200 opacity-60' :
+                          'bg-slate-50 border-slate-200 opacity-60']">
+                <div class="flex justify-between items-start gap-4">
+                    <div class="flex-1 min-w-0">
+                        <!-- Header row -->
+                        <div class="flex items-center gap-3 mb-3 flex-wrap">
+                            <h4 class="font-bold text-slate-800 text-base">[[ s.name ]]</h4>
+                            <span v-if="isActive(s)" class="bg-yellow-400 text-yellow-900 text-[11px] px-2.5 py-0.5 rounded-full font-semibold flex items-center gap-1">
+                                <span class="w-1.5 h-1.5 rounded-full bg-red-500 animate-pulse"></span>
+                                生效中
+                            </span>
+                            <span v-else-if="!s.is_active" class="bg-slate-300 text-slate-600 text-[11px] px-2.5 py-0.5 rounded-full font-medium">已取消</span>
+                            <span v-else class="bg-slate-300 text-slate-600 text-[11px] px-2.5 py-0.5 rounded-full font-medium">已过期</span>
+                        </div>
+
+                        <!-- Reason -->
+                        <div v-if="s.reason" class="text-sm text-slate-600 mb-3 flex items-start gap-1.5">
+                            <i class="ri-chat-quote-line text-slate-400 mt-0.5 flex-shrink-0"></i>
+                            <span>[[ s.reason ]]</span>
+                        </div>
+
+                        <!-- Time row -->
+                        <div class="text-sm text-slate-500 mb-3 flex items-center gap-1 flex-wrap">
+                            <i class="ri-calendar-event-line mr-1"></i>
+                            [[ formatTime(s.starts_at) ]] — [[ formatTime(s.ends_at) ]]
+                            <span v-if="isActive(s)" class="text-yellow-700 font-medium ml-2">
+                                (剩余 [[ remainingTime(s.ends_at) ]])
+                            </span>
+                        </div>
+
+                        <!-- Conditions -->
+                        <div class="flex flex-wrap items-center gap-1.5">
+                            <span class="text-xs text-slate-400 mr-1">匹配:</span>
+                            <span class="text-[11px] bg-slate-100 text-slate-600 px-1.5 py-0.5 rounded font-medium">[[ s.match_mode ]]</span>
+                            <span v-for="c in s.conditions" :key="c.id"
+                                class="text-[11px] bg-white border border-slate-300 rounded-md px-2.5 py-1 font-mono text-slate-700 shadow-sm">
+                                <span class="text-slate-500">[[ c.key ]]</span>
+                                <span class="text-primary-600 mx-1">[[ operatorLabel(c.operator) ]]</span>
+                                <span class="text-slate-800 font-semibold">[[ c.value ]]</span>
+                            </span>
+                        </div>
+                    </div>
+
+                    <!-- Actions -->
+                    <div class="flex items-start gap-1 flex-shrink-0">
+                        <button v-if="isActive(s)" @click="openEditor(s)"
+                            class="text-slate-400 hover:text-primary-600 p-2 hover:bg-primary-50 rounded-lg transition-colors" title="编辑/续期">
+                            <i class="ri-edit-line text-lg"></i>
+                        </button>
+                        <button v-if="isActive(s)" @click="cancelSilence(s.id)"
+                            class="text-slate-400 hover:text-red-500 p-2 hover:bg-red-50 rounded-lg transition-colors" title="取消屏蔽">
+                            <i class="ri-stop-circle-line text-lg"></i>
+                        </button>
+                        <button v-if="!isActive(s)" @click="deleteSilence(s.id)"
+                            class="text-slate-400 hover:text-red-500 p-2 hover:bg-red-50 rounded-lg transition-colors" title="删除记录">
+                            <i class="ri-delete-bin-line text-lg"></i>
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Editor Modal -->
+    <div v-if="showEditor" class="fixed inset-0 bg-black/50 flex items-center justify-center z-50" @click.self="showEditor=false">
+        <div class="bg-white rounded-2xl shadow-2xl w-full max-w-xl p-6 max-h-[90vh] overflow-y-auto">
+            <h3 class="text-xl font-bold text-slate-800 mb-5 flex items-center">
+                <i :class="editingId ? 'ri-edit-line' : 'ri-volume-mute-line'" class="mr-2 text-yellow-500"></i>
+                [[ editingId ? '编辑屏蔽' : '新增告警屏蔽' ]]
+            </h3>
+            <div class="space-y-4">
+                <div>
+                    <label class="block text-sm font-medium text-slate-600 mb-1.5">名称 <span class="text-red-400">*</span></label>
+                    <input v-model="form.name" type="text" class="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-2.5 outline-none focus:ring-2 focus:ring-primary-500 text-sm" placeholder="例如：发版: dx-insight v2.3">
+                </div>
+                <div>
+                    <label class="block text-sm font-medium text-slate-600 mb-1.5">备注</label>
+                    <input v-model="form.reason" type="text" class="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-2.5 outline-none focus:ring-2 focus:ring-primary-500 text-sm" placeholder="例如：预计2小时发版窗口">
+                </div>
+                <div>
+                    <label class="block text-sm font-medium text-slate-600 mb-1.5">截止时间 <span class="text-red-400">*</span></label>
+                    <div class="flex gap-2 flex-wrap mb-2">
+                        <button v-for="h in [1,2,4,8,24]" :key="h"
+                            @click="setDuration(h)"
+                            class="px-3 py-1.5 text-xs rounded-lg border transition-colors"
+                            :class="duration === h ? 'bg-yellow-100 border-yellow-400 text-yellow-800 font-medium' : 'bg-white border-slate-200 text-slate-600 hover:bg-slate-50'">
+                            +[[ h ]]h
+                        </button>
+                        <button @click="setDuration('custom')"
+                            class="px-3 py-1.5 text-xs rounded-lg border transition-colors"
+                            :class="duration === 'custom' ? 'bg-yellow-100 border-yellow-400 text-yellow-800 font-medium' : 'bg-white border-slate-200 text-slate-600 hover:bg-slate-50'">
+                            自定义
+                        </button>
+                    </div>
+                    <input v-if="duration === 'custom'" v-model="form.ends_at_str" type="datetime-local"
+                        class="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-2.5 outline-none focus:ring-2 focus:ring-primary-500 text-sm">
+                </div>
+                <div>
+                    <label class="block text-sm font-medium text-slate-600 mb-2">匹配条件 <span class="text-red-400">*</span></label>
+                    <div class="space-y-2">
+                        <div v-for="(c, idx) in form.conditions" :key="idx" class="flex gap-2 items-center">
+                            <input v-model="c.key" type="text" placeholder="字段名" class="flex-1 bg-slate-50 border border-slate-200 rounded-lg px-3 py-2 text-sm outline-none focus:border-primary-500">
+                            <select v-model="c.operator" class="bg-slate-50 border border-slate-200 rounded-lg px-2 py-2 text-sm outline-none w-20">
+                                <option value="equals">=</option>
+                                <option value="contains">~</option>
+                                <option value="startswith">^=</option>
+                                <option value="regex">.*</option>
+                            </select>
+                            <input v-model="c.value" type="text" placeholder="值" class="flex-1 bg-slate-50 border border-slate-200 rounded-lg px-3 py-2 text-sm outline-none focus:border-primary-500">
+                            <button @click="form.conditions.splice(idx,1)" class="text-slate-400 hover:text-red-500 p-1.5"><i class="ri-close-circle-line"></i></button>
+                        </div>
+                    </div>
+                    <button @click="form.conditions.push({key:'',operator:'equals',value:''})" class="mt-2 text-xs text-primary-600 hover:underline flex items-center">
+                        <i class="ri-add-line mr-1"></i> 添加条件
+                    </button>
+                </div>
+                <div class="text-xs text-slate-500">
+                    模式:
+                    <label class="ml-3 cursor-pointer"><input type="radio" v-model="form.match_mode" value="AND" class="mr-1">AND</label>
+                    <label class="ml-4 cursor-pointer"><input type="radio" v-model="form.match_mode" value="OR" class="mr-1">OR</label>
+                </div>
+            </div>
+            <div class="flex justify-end space-x-3 mt-6 pt-5 border-t border-slate-100">
+                <button @click="showEditor = false" class="px-5 py-2.5 text-slate-600 hover:bg-slate-100 rounded-xl transition-colors text-sm">取消</button>
+                <button @click="saveSilence" class="px-5 py-2.5 bg-yellow-500 hover:bg-yellow-400 text-white rounded-xl shadow-sm transition-colors font-medium text-sm">[[ editingId ? '保存修改' : '创建屏蔽' ]]</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+const { createApp, ref, computed, onMounted } = Vue
+
+createApp({
+    delimiters: ['[[', ']]'],
+    setup() {
+        const silences = ref([])
+        const showEditor = ref(false)
+        const editingId = ref(null)
+        const duration = ref(null)
+        const form = ref({
+            name: '', reason: '', ends_at_str: '', _ends_epoch: null,
+            match_mode: 'AND',
+            conditions: [{ key: '', operator: 'equals', value: '' }]
+        })
+
+        const sortedSilences = computed(() => {
+            return [...silences.value].sort((a, b) => {
+                const aActive = isActive(a) ? 0 : 1
+                const bActive = isActive(b) ? 0 : 1
+                if (aActive !== bActive) return aActive - bActive
+                return new Date(b.created_at) - new Date(a.created_at)
+            })
+        })
+
+        const toUTCDate = (t) => {
+            if (!t) return new Date()
+            const s = String(t)
+            return new Date(s.endsWith('Z') || s.includes('+') ? s : s + 'Z')
+        }
+
+        const isActive = (s) => s.is_active && toUTCDate(s.ends_at) > new Date()
+
+        const remainingTime = (ends) => {
+            const diff = toUTCDate(ends) - new Date()
+            if (diff <= 0) return '已过期'
+            const h = Math.floor(diff / 3600000)
+            const m = Math.floor((diff % 3600000) / 60000)
+            return h > 0 ? `${h}小时${m}分钟` : `${m}分钟`
+        }
+
+        const operatorLabel = (op) => ({ equals: '=', contains: '~', startswith: '^=', regex: '.*' })[op] || op
+
+        const formatTime = (t) => {
+            if (!t) return '-'
+            const d = toUTCDate(t)
+            const pad = n => String(n).padStart(2, '0')
+            return `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())} ${pad(d.getHours())}:${pad(d.getMinutes())}`
+        }
+
+        const fetchSilences = async () => {
+            const res = await fetch('/api/v1/settings/silences')
+            if (res.ok) silences.value = await res.json()
+        }
+
+        const setDuration = (h) => {
+            duration.value = h
+            if (h !== 'custom') {
+                // Store epoch ms directly — avoids all timezone string parsing issues
+                form.value._ends_epoch = Date.now() + h * 3600000
+                const d = new Date(form.value._ends_epoch)
+                form.value.ends_at_str = d.toISOString().slice(0, 16)
+            } else {
+                form.value._ends_epoch = null
+            }
+        }
+
+        const openEditor = (s = null) => {
+            if (s) {
+                editingId.value = s.id
+                duration.value = 'custom'
+                // Convert stored UTC time to local time for the datetime-local input
+                const utcD = toUTCDate(s.ends_at)
+                const pad = n => String(n).padStart(2, '0')
+                const localEnds = `${utcD.getFullYear()}-${pad(utcD.getMonth()+1)}-${pad(utcD.getDate())}T${pad(utcD.getHours())}:${pad(utcD.getMinutes())}`
+                form.value = {
+                    name: s.name,
+                    reason: s.reason || '',
+                    ends_at_str: localEnds,
+                    match_mode: s.match_mode,
+                    conditions: s.conditions.length ? s.conditions.map(c => ({ key: c.key, operator: c.operator, value: c.value })) : [{ key: '', operator: 'equals', value: '' }]
+                }
+            } else {
+                editingId.value = null
+                duration.value = null
+                form.value = {
+                    name: '', reason: '', ends_at_str: '', _ends_epoch: null,
+                    match_mode: 'AND',
+                    conditions: [{ key: '', operator: 'equals', value: '' }]
+                }
+            }
+            showEditor.value = true
+        }
+
+        const saveSilence = async () => {
+            if (!form.value.name || !form.value.ends_at_str) {
+                window.showToast('请填写名称和截止时间', 'error'); return
+            }
+            const conditions = form.value.conditions.filter(c => c.key && c.value)
+            if (conditions.length === 0) {
+                window.showToast('请至少添加一个有效条件', 'error'); return
+            }
+            // Compute ends_at as proper UTC ISO.
+            // Duration buttons store epoch ms directly; custom input uses datetime-local string.
+            let endsAtISO
+            if (form.value._ends_epoch) {
+                endsAtISO = new Date(form.value._ends_epoch).toISOString()
+            } else {
+                // datetime-local gives local time; convert to UTC
+                const localDate = new Date(form.value.ends_at_str)
+                endsAtISO = new Date(localDate.getTime() - localDate.getTimezoneOffset() * 60000).toISOString()
+            }
+            const payload = {
+                name: form.value.name,
+                reason: form.value.reason || null,
+                ends_at: endsAtISO,
+                match_mode: form.value.match_mode,
+                conditions,
+                created_by: null
+            }
+            const method = editingId.value ? 'PUT' : 'POST'
+            const url = editingId.value ? `/api/v1/settings/silences/${editingId.value}` : '/api/v1/settings/silences'
+            const res = await fetch(url, {
+                method, headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload)
+            })
+            if (res.ok) {
+                window.showToast(editingId.value ? '屏蔽已更新' : '屏蔽已创建')
+                showEditor.value = false
+                fetchSilences()
+            } else {
+                const d = await res.json()
+                window.showToast('操作失败: ' + (d.detail || 'Error'), 'error')
+            }
+        }
+
+        const cancelSilence = async (id) => {
+            if (!confirm('确定提前取消此屏蔽规则？')) return
+            const res = await fetch(`/api/v1/settings/silences/${id}`, { method: 'DELETE' })
+            if (res.ok) { window.showToast('屏蔽已取消'); fetchSilences() }
+        }
+
+        const deleteSilence = async (id) => {
+            if (!confirm('确定永久删除此屏蔽记录？此操作不可撤销。')) return
+            const res = await fetch(`/api/v1/settings/silences/${id}?permanent=true`, { method: 'DELETE' })
+            if (res.ok) { window.showToast('记录已删除'); fetchSilences() }
+        }
+
+        onMounted(() => fetchSilences())
+
+        return {
+            silences, sortedSilences, showEditor, editingId, duration, form,
+            isActive, remainingTime, operatorLabel, formatTime,
+            setDuration, openEditor, saveSilence, cancelSilence, deleteSilence
+        }
+    }
+}).mount('#app')
+</script>
+{% endblock %}

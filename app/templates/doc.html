@@ -1,0 +1,38 @@
+{% extends "base.html" %}
+
+{% block title %}文档中心{% endblock %}
+
+{% block content %}
+<div class="flex h-[calc(100vh-80px)]">
+    <!-- Docs Sidebar -->
+    <div class="w-64 bg-white border-r border-slate-200 overflow-y-auto">
+        <div class="p-4">
+            <h3 class="text-sm font-bold text-slate-500 uppercase tracking-wider mb-4 px-2">文档列表</h3>
+            <nav class="space-y-1">
+                {% for doc in docs_list %}
+                <a href="/docs/{{ doc.id }}" 
+                   class="flex items-center px-3 py-2 text-sm font-medium rounded-lg transition-colors
+                          {% if current_doc == doc.id %}
+                          bg-primary-50 text-primary-600
+                          {% else %}
+                          text-slate-600 hover:bg-slate-50 hover:text-slate-900
+                          {% endif %}">
+                    <i class="ri-file-text-line mr-3 opacity-70"></i>
+                    {{ doc.title }}
+                </a>
+                {% endfor %}
+            </nav>
+        </div>
+    </div>
+
+    <!-- Doc Content -->
+    <div class="flex-1 overflow-y-auto bg-white">
+        <div class="max-w-4xl mx-auto px-8 py-12">
+            <article class="prose prose-slate max-w-none prose-headings:font-bold prose-h1:text-3xl prose-a:text-primary-600 hover:prose-a:text-primary-700">
+                {{ content|safe }}
+            </article>
+        </div>
+    </div>
+</div>
+
+{% endblock %}

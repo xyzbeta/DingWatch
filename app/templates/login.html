@@ -1,0 +1,123 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Login | DingWatch</title>
+    <script src="/static/js/tailwindcss.js"></script>
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        primary: {
+                            50: '#eff6ff',
+                            100: '#dbeafe',
+                            200: '#bfdbfe',
+                            300: '#93c5fd',
+                            400: '#60a5fa',
+                            500: '#3b82f6',
+                            600: '#2563eb',
+                            700: '#1d4ed8',
+                            800: '#1e40af',
+                            900: '#1e3a8a',
+                        }
+                    }
+                }
+            }
+        }
+    </script>
+    <script src="/static/js/vue.global.js"></script>
+    <link rel="stylesheet" href="/static/css/remixicon.css">
+</head>
+<body class="bg-slate-50 h-screen flex items-center justify-center relative overflow-hidden">
+    <!-- Background Effects -->
+    <div class="absolute top-0 left-0 w-full h-full overflow-hidden pointer-events-none">
+        <div class="absolute -top-[20%] -left-[10%] w-[50%] h-[50%] bg-primary-100/50 rounded-full blur-[120px]"></div>
+        <div class="absolute top-[60%] -right-[10%] w-[40%] h-[40%] bg-blue-100/50 rounded-full blur-[100px]"></div>
+    </div>
+
+    <div id="app" class="relative z-10 w-full max-w-md p-6">
+        <div class="bg-white/80 backdrop-blur-xl border border-slate-200 rounded-2xl p-8 shadow-xl">
+            <div class="text-center mb-8">
+                <i class="ri-radar-fill text-4xl text-primary-600 inline-block mb-3"></i>
+                <h1 class="text-2xl font-bold text-slate-800 tracking-wide">DingWatch</h1>
+                <p class="text-slate-500 text-sm mt-2">智能告警中台管理系统</p>
+            </div>
+
+            <form @submit.prevent="login" class="space-y-5">
+                <div>
+                    <label class="block text-sm font-medium text-slate-600 mb-1.5">账号</label>
+                    <div class="relative">
+                        <i class="ri-user-3-line absolute left-3 top-1/2 -translate-y-1/2 text-slate-400"></i>
+                        <input v-model="username" type="text" class="w-full bg-slate-50 border border-slate-200 rounded-lg py-2.5 pl-10 pr-4 text-slate-800 focus:ring-2 focus:ring-primary-500 focus:border-transparent outline-none transition-all placeholder-slate-400" placeholder="请输入账号" required>
+                    </div>
+                </div>
+                
+                <div>
+                    <label class="block text-sm font-medium text-slate-600 mb-1.5">密码</label>
+                    <div class="relative">
+                        <i class="ri-lock-2-line absolute left-3 top-1/2 -translate-y-1/2 text-slate-400"></i>
+                        <input v-model="password" type="password" class="w-full bg-slate-50 border border-slate-200 rounded-lg py-2.5 pl-10 pr-4 text-slate-800 focus:ring-2 focus:ring-primary-500 focus:border-transparent outline-none transition-all placeholder-slate-400" placeholder="请输入密码" required>
+                    </div>
+                </div>
+
+                <div v-if="errorMsg" class="p-3 rounded-lg bg-red-50 border border-red-100 text-red-500 text-xs flex items-center">
+                    <i class="ri-error-warning-fill mr-2"></i> [[ errorMsg ]]
+                </div>
+
+                <button type="submit" :disabled="loading" class="w-full bg-primary-600 hover:bg-primary-700 text-white font-bold py-2.5 rounded-lg transition-all transform active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center shadow-lg shadow-primary-600/20">
+                    <i v-if="loading" class="ri-loader-4-line animate-spin mr-2"></i>
+                    [[ loading ? '登录中...' : '登 录' ]]
+                </button>
+            </form>
+        </div>
+        
+        <div class="mt-8 text-center text-xs text-slate-400">
+            &copy; 2024 XyzBeta. All rights reserved.
+        </div>
+    </div>
+
+    <script>
+        const { createApp, ref } = Vue
+        createApp({
+            delimiters: ['[[', ']]'],
+            setup() {
+                const username = ref('')
+                const password = ref('')
+                const loading = ref(false)
+                const errorMsg = ref('')
+
+                const login = async () => {
+                    loading.value = true
+                    errorMsg.value = ''
+                    
+                    const formData = new FormData()
+                    formData.append('username', username.value)
+                    formData.append('password', password.value)
+
+                    try {
+                        const res = await fetch('/login', {
+                            method: 'POST',
+                            body: formData
+                        })
+                        
+                        if (res.ok) {
+                            window.location.href = '/'
+                        } else {
+                            const data = await res.json()
+                            errorMsg.value = data.detail || '登录失败'
+                        }
+                    } catch (e) {
+                        errorMsg.value = '网络错误，请重试'
+                    } finally {
+                        loading.value = false
+                    }
+                }
+
+                return { username, password, loading, errorMsg, login }
+            }
+        }).mount('#app')
+    </script>
+</body>
+</html>

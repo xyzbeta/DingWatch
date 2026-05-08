@@ -1,0 +1,226 @@
+{% extends "base.html" %}
+
+{% block title %}Dashboard{% endblock %}
+
+{% block content %}
+<div id="app" class="space-y-6">
+    <!-- Welcome Banner -->
+    <div class="relative overflow-hidden rounded-xl bg-gradient-to-r from-primary-600 to-primary-800 p-8 shadow-2xl">
+        <div class="relative z-10">
+            <h1 class="text-3xl font-bold text-white mb-2">欢迎回来，[[ admin.nickname || admin.username ]]</h1>
+            <p class="text-primary-100 max-w-xl text-sm leading-relaxed opacity-90">DingWatch 智能告警中台已就绪。系统正在实时监控 PaaS 告警流量并执行分发策略。</p>
+            <div class="mt-6 flex gap-3">
+                <a href="/logs" class="px-4 py-2 bg-white text-primary-600 rounded-lg font-medium hover:bg-slate-50 transition-colors shadow-sm">
+                    查看实时日志
+                </a>
+                <a href="/rules" class="px-4 py-2 bg-primary-700 text-white rounded-lg font-medium hover:bg-primary-600 transition-colors border border-primary-500 shadow-sm">
+                    配置规则
+                </a>
+            </div>
+        </div>
+        <!-- Decorative Circle -->
+        <div class="absolute -right-20 -top-20 w-64 h-64 rounded-full bg-white/10 blur-3xl"></div>
+    </div>
+
+    <!-- Quick Stats -->
+    <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+        <div class="glass-panel p-6 rounded-xl flex items-center justify-between bg-white border border-slate-200 shadow-sm">
+            <div>
+                <p class="text-slate-500 text-sm font-medium uppercase tracking-wider">今日告警总数</p>
+                <h3 class="text-3xl font-bold text-slate-800 mt-1">[[ stats.today_count ]]</h3>
+                <p class="text-slate-400 text-xs mt-1 flex items-center">
+                   实时统计
+                </p>
+            </div>
+            <div class="w-12 h-12 rounded-lg bg-blue-50 flex items-center justify-center text-blue-600">
+                <i class="ri-pulse-line text-2xl"></i>
+            </div>
+        </div>
+
+        <div class="glass-panel p-6 rounded-xl flex items-center justify-between bg-white border border-slate-200 shadow-sm">
+            <div>
+                <p class="text-slate-500 text-sm font-medium uppercase tracking-wider">成功分发</p>
+                <h3 class="text-3xl font-bold text-slate-800 mt-1">[[ stats.success_count ]]</h3>
+                <p class="text-slate-400 text-xs mt-1">
+                    成功率 [[ stats.today_count > 0 ? Math.round(stats.success_count / stats.today_count * 100) : 0 ]]%
+                </p>
+            </div>
+            <div class="w-12 h-12 rounded-lg bg-green-50 flex items-center justify-center text-green-600">
+                <i class="ri-checkbox-circle-line text-2xl"></i>
+            </div>
+        </div>
+
+        <div class="glass-panel p-6 rounded-xl flex items-center justify-between bg-white border border-slate-200 shadow-sm">
+            <div>
+                <p class="text-slate-500 text-sm font-medium uppercase tracking-wider">活跃规则</p>
+                <h3 class="text-3xl font-bold text-slate-800 mt-1">[[ stats.active_rules_count ]]</h3>
+                <p class="text-slate-400 text-xs mt-1">覆盖 [[ stats.active_teams_count ]] 个团队</p>
+            </div>
+            <div class="w-12 h-12 rounded-lg bg-purple-50 flex items-center justify-center text-purple-600">
+                <i class="ri-flow-chart text-2xl"></i>
+            </div>
+        </div>
+    </div>
+
+    <!-- Recent Activity -->
+    <div class="glass-panel rounded-xl overflow-hidden bg-white border border-slate-200 shadow-sm">
+        <div class="px-6 py-4 border-b border-slate-100 flex justify-between items-center bg-slate-50/50">
+            <h3 class="text-lg font-bold text-slate-800">告警趋势 (最近7天)</h3>
+            <a href="/logs" class="text-sm text-primary-600 hover:text-primary-700 font-medium">查看日志</a>
+        </div>
+        <div class="p-6 relative">
+            <div class="h-64 w-full">
+                <canvas id="statsChart"></canvas>
+            </div>
+            <!-- Loading State -->
+            <div v-if="loading" class="absolute inset-0 flex items-center justify-center bg-white/80 z-10">
+                <i class="ri-loader-4-line text-3xl animate-spin text-primary-600"></i>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Chart.js -->
+<script src="/static/js/chart.js"></script>
+
+<script>
+const { createApp, ref, onMounted } = Vue
+
+createApp({
+    delimiters: ['[[', ']]'],
+    setup() {
+        const stats = ref({
+            today_count: 0,
+            success_count: 0,
+            active_rules_count: 0,
+            active_teams_count: 0,
+            daily_stats: []
+        })
+        const admin = ref({})
+        const loading = ref(true)
+        let chartInstance = null
+
+        const initChart = (data) => {
+            const ctx = document.getElementById('statsChart').getContext('2d');
+            
+            if (chartInstance) {
+                chartInstance.destroy();
+            }
+
+            const labels = data.map(item => item.date);
+            const counts = data.map(item => item.count);
+
+            chartInstance = new Chart(ctx, {
+                type: 'line',
+                data: {
+                    labels: labels,
+                    datasets: [{
+                        label: '告警数量',
+                        data: counts,
+                        borderColor: '#3b82f6',
+                        backgroundColor: 'rgba(59, 130, 246, 0.1)',
+                        borderWidth: 2,
+                        fill: true,
+                        tension: 0.4,
+                        pointBackgroundColor: '#ffffff',
+                        pointBorderColor: '#3b82f6',
+                        pointBorderWidth: 2,
+                        pointRadius: 4,
+                        pointHoverRadius: 6
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: {
+                            display: false
+                        },
+                        tooltip: {
+                            mode: 'index',
+                            intersect: false,
+                            backgroundColor: 'rgba(255, 255, 255, 0.9)',
+                            titleColor: '#1e293b',
+                            bodyColor: '#475569',
+                            borderColor: '#e2e8f0',
+                            borderWidth: 1,
+                            padding: 10,
+                            displayColors: false
+                        }
+                    },
+                    scales: {
+                        y: {
+                            beginAtZero: true,
+                            grid: {
+                                color: '#f1f5f9',
+                                borderDash: [2, 2]
+                            },
+                            ticks: {
+                                color: '#94a3b8',
+                                precision: 0
+                            },
+                            border: {
+                                display: false
+                            }
+                        },
+                        x: {
+                            grid: {
+                                display: false
+                            },
+                            ticks: {
+                                color: '#64748b'
+                            },
+                            border: {
+                                display: false
+                            }
+                        }
+                    },
+                    interaction: {
+                        mode: 'nearest',
+                        axis: 'x',
+                        intersect: false
+                    }
+                }
+            });
+        }
+
+        const fetchStats = async () => {
+            try {
+                const res = await fetch('api/v1/stats')
+                if (res.ok) {
+                    stats.value = await res.json()
+                    // Initialize Chart if we have daily stats
+                    if (stats.value.daily_stats && stats.value.daily_stats.length > 0) {
+                        initChart(stats.value.daily_stats)
+                    }
+                }
+            } catch (e) {
+                console.error(e)
+            } finally {
+                loading.value = false
+            }
+        }
+        
+        const fetchProfile = async () => {
+            try {
+                const res = await fetch('api/v1/profile')
+                if (res.ok) {
+                    admin.value = await res.json()
+                }
+            } catch (e) {
+                console.error(e)
+            }
+        }
+
+        onMounted(() => {
+            fetchStats()
+            fetchProfile()
+            // Auto refresh stats every 30s
+            setInterval(fetchStats, 30000)
+        })
+
+        return { stats, admin, loading }
+    }
+}).mount('#app')
+</script>
+{% endblock %}

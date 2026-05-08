@@ -1,0 +1,108 @@
+{% extends "base.html" %}
+
+{% block title %}Profile{% endblock %}
+
+{% block content %}
+<div id="app" class="max-w-3xl mx-auto">
+    <div class="glass-panel rounded-xl overflow-hidden p-8 bg-white border border-slate-200 shadow-sm">
+        <h2 class="text-2xl font-bold text-slate-800 mb-6 flex items-center">
+            <i class="ri-user-settings-line mr-3 text-primary-600"></i> 个人中心
+        </h2>
+        
+        <form @submit.prevent="updateProfile" class="space-y-6">
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div>
+                    <label class="block text-sm font-medium text-slate-600 mb-2">账号 (不可修改)</label>
+                    <input v-model="profile.username" type="text" disabled class="w-full bg-slate-100 border border-slate-200 rounded-lg px-4 py-2.5 text-slate-500 cursor-not-allowed">
+                </div>
+                
+                <div>
+                    <label class="block text-sm font-medium text-slate-600 mb-2">昵称</label>
+                    <input v-model="form.nickname" type="text" class="w-full bg-slate-50 border border-slate-200 rounded-lg px-4 py-2.5 text-slate-800 focus:ring-2 focus:ring-primary-500 outline-none">
+                </div>
+            </div>
+
+            <div>
+                <label class="block text-sm font-medium text-slate-600 mb-2">个人简介</label>
+                <textarea v-model="form.description" rows="3" class="w-full bg-slate-50 border border-slate-200 rounded-lg px-4 py-2.5 text-slate-800 focus:ring-2 focus:ring-primary-500 outline-none"></textarea>
+            </div>
+
+            <div class="pt-6 border-t border-slate-100">
+                <h3 class="text-lg font-medium text-slate-800 mb-4">修改密码</h3>
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <div>
+                        <label class="block text-sm font-medium text-slate-600 mb-2">新密码</label>
+                        <input v-model="form.password" type="password" class="w-full bg-slate-50 border border-slate-200 rounded-lg px-4 py-2.5 text-slate-800 focus:ring-2 focus:ring-primary-500 outline-none" placeholder="不修改请留空">
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium text-slate-600 mb-2">确认新密码</label>
+                        <input v-model="confirmPassword" type="password" class="w-full bg-slate-50 border border-slate-200 rounded-lg px-4 py-2.5 text-slate-800 focus:ring-2 focus:ring-primary-500 outline-none" placeholder="不修改请留空">
+                    </div>
+                </div>
+            </div>
+
+            <div class="flex justify-end pt-4">
+                <button type="submit" class="px-6 py-2.5 bg-primary-600 hover:bg-primary-500 text-white rounded-lg font-medium transition-all shadow-lg shadow-primary-600/20">
+                    保存修改
+                </button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<script>
+const { createApp, ref, onMounted } = Vue
+
+createApp({
+    delimiters: ['[[', ']]'],
+    setup() {
+        const profile = ref({})
+        const form = ref({ nickname: '', description: '', password: '' })
+        const confirmPassword = ref('')
+
+        const fetchProfile = async () => {
+            const res = await fetch('/api/v1/profile')
+            if (res.ok) {
+                profile.value = await res.json()
+                form.value.nickname = profile.value.nickname
+                form.value.description = profile.value.description
+            }
+        }
+
+        const updateProfile = async () => {
+            if (form.value.password && form.value.password !== confirmPassword.value) {
+                window.showToast('两次输入的密码不一致', 'error')
+                return
+            }
+
+            const payload = {
+                nickname: form.value.nickname,
+                description: form.value.description
+            }
+            if (form.value.password) payload.password = form.value.password
+
+            const res = await fetch('/api/v1/profile', {
+                method: 'PUT',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(payload)
+            })
+
+            if (res.ok) {
+                window.showToast('个人信息已更新')
+                form.value.password = ''
+                confirmPassword.value = ''
+                fetchProfile()
+            } else {
+                window.showToast('更新失败', 'error')
+            }
+        }
+
+        onMounted(() => {
+            fetchProfile()
+        })
+
+        return { profile, form, confirmPassword, updateProfile }
+    }
+}).mount('#app')
+</script>
+{% endblock %}

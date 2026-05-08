@@ -1,0 +1,111 @@
+{% extends "base.html" %}
+
+{% block title %}System Health{% endblock %}
+
+{% block content %}
+<div id="app" class="w-full">
+    <div class="glass-panel rounded-xl overflow-hidden p-8 bg-white border border-slate-200 shadow-sm">
+        <h2 class="text-2xl font-bold text-slate-800 mb-6 flex items-center">
+            <i class="ri-heart-pulse-line mr-3 text-primary-600"></i> 系统健康状态
+        </h2>
+        
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <!-- Basic Info -->
+            <div class="p-6 bg-slate-50 rounded-lg border border-slate-200">
+                <h3 class="text-lg font-medium text-slate-800 mb-4 flex items-center">
+                    <i class="ri-server-line mr-2 text-slate-500"></i> 服务信息
+                </h3>
+                <div class="space-y-3 text-sm">
+                    <div class="flex justify-between">
+                        <span class="text-slate-500">DingWatch 版本</span>
+                        <span class="font-mono font-medium text-slate-800">[[ info.version ]]</span>
+                    </div>
+                    <div class="flex justify-between">
+                        <span class="text-slate-500">服务状态</span>
+                        <span class="font-medium text-green-600 flex items-center">
+                            <i class="ri-checkbox-circle-fill mr-1"></i> [[ info.status ]]
+                        </span>
+                    </div>
+                    <div class="flex justify-between">
+                        <span class="text-slate-500">运行环境</span>
+                        <span class="font-mono text-slate-800">Docker / Linux</span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Database -->
+            <div class="p-6 bg-slate-50 rounded-lg border border-slate-200">
+                <h3 class="text-lg font-medium text-slate-800 mb-4 flex items-center">
+                    <i class="ri-database-2-line mr-2 text-slate-500"></i> 数据库状态
+                </h3>
+                <div class="space-y-3 text-sm">
+                    <div class="flex justify-between">
+                        <span class="text-slate-500">数据库类型</span>
+                        <span class="font-medium text-slate-800">SQLite</span>
+                    </div>
+                    <div class="flex justify-between">
+                        <span class="text-slate-500">文件大小</span>
+                        <span class="font-mono text-slate-800">[[ formatBytes(info.db_size_bytes) ]]</span>
+                    </div>
+                    <div class="flex justify-between">
+                        <span class="text-slate-500">并发模式 (WAL)</span>
+                        <span v-if="info.db_wal_enabled" class="text-green-600 font-medium">
+                            <i class="ri-check-line mr-1"></i> 已开启
+                        </span>
+                        <span v-else class="text-yellow-600 font-medium">
+                            <i class="ri-alert-line mr-1"></i> 未开启
+                        </span>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <div class="mt-8 flex justify-end">
+             <button @click="refresh" class="px-4 py-2 bg-white border border-slate-300 hover:bg-slate-50 text-slate-700 rounded-lg font-medium transition-all shadow-sm flex items-center">
+                <i class="ri-refresh-line mr-2"></i> 刷新状态
+            </button>
+        </div>
+    </div>
+</div>
+
+<script>
+const { createApp, ref, onMounted } = Vue
+
+createApp({
+    delimiters: ['[[', ']]'],
+    setup() {
+        const info = ref({ status: 'checking...', version: '-', db_size_bytes: 0, db_wal_enabled: false })
+        
+        const fetchHealth = async () => {
+            try {
+                const res = await fetch('/api/health')
+                if (res.ok) {
+                    info.value = await res.json()
+                } else {
+                    info.value.status = 'error'
+                }
+            } catch (e) {
+                info.value.status = 'unreachable'
+            }
+        }
+        
+        const formatBytes = (bytes, decimals = 2) => {
+            if (!+bytes) return '0 Bytes'
+            const k = 1024
+            const dm = decimals < 0 ? 0 : decimals
+            const sizes = ['Bytes', 'KB', 'MB', 'GB', 'TB']
+            const i = Math.floor(Math.log(bytes) / Math.log(k))
+            return `${parseFloat((bytes / Math.pow(k, i)).toFixed(dm))} ${sizes[i]}`
+        }
+
+        onMounted(() => {
+            fetchHealth()
+        })
+
+        return {
+            info, refresh: fetchHealth, formatBytes
+        }
+    }
+}).mount('#app')
+</script>
+{% endblock %}
