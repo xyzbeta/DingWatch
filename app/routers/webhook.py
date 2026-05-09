@@ -89,14 +89,13 @@ async def process_alert(db: Session, alert_data: dict, log_id: int):
 
             # Append @ mentions
             if phones:
-                at_text = "\n\n" + " ".join([f"@{phone}" for phone in phones])
+                at_text = "\n" + " ".join([f"@{phone}" for phone in phones])
                 rendered_text += at_text
 
             # Send via DingTalk
             try:
                 config = json.loads(channel.config)
-                res = dingtalk_client.send_markdown(
-                    title=single_unified["title"],
+                res = dingtalk_client.send_text(
                     text=rendered_text,
                     webhook_url=config.get("webhook_url"),
                     secret=config.get("secret"),
