@@ -1,5 +1,6 @@
 data/
 *.tar.gz
+*.tar
 .env
 .claude/
 .trae/
