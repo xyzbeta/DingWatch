@@ -1,4 +1,4 @@
-# DingWatch 用户操作手册 (v1.4.1)
+# DingWatch 用户操作手册 (v1.4.3)
 
 欢迎使用 DingWatch 告警分发中台。本文档将指导您如何使用本系统的各项功能。
 
@@ -93,15 +93,20 @@
 
 ### 5.1 通知通道配置
 
-*   **新增通道**: 填入钉钉机器人的 Webhook URL、Secret、Access Token。
+*   **新增通道**: 填入钉钉机器人信息。
+    *   **Webhook URL**: 可直接粘贴钉钉复制的完整地址（如 `https://oapi.dingtalk.com/robot/send?access_token=xxx`），系统会自动提取 `access_token` 并清理 URL。也可分别填写 URL 和 Access Token。
+    *   **Secret**: 钉钉机器人加签密钥。
+    *   **Access Token**: 可留空，粘贴完整 URL 后自动填充。
 *   **启用/停用**: 通道卡片右下角开关控制。开启显示「已启用」（绿色），关闭显示「已禁用」（灰色）。停用后卡片变灰，并显示警告「已停用：匹配到此通道的告警规则将不会推送消息」。
 *   **设为默认**: 默认通道作为所有规则的兜底。
 *   **测试连接**: 立即发送测试消息到钉钉群。
 *   **消息模板 (v1.3 新增)**:
-    *   支持 Jinja2 模板语法自定义钉钉消息格式。
+    *   支持 Jinja2 模板语法自定义钉钉消息格式，消息以**纯文本**（text）类型发送。
     *   留空则使用系统默认模板。
-    *   可用变量: `title`、`severity`、`message`、`alerts`、`source`、`raw_data`。
+    *   可用变量: `title`、`severity`、`message`、`alerts`、`source`、`raw_data`、**`params`（v1.4.3 新增）**。
+    *   `params` 包含 Webhook URL 中的查询参数。例如请求 `/send?env=生产环境`，模板中使用 `{{ params.env }}` 即可获取。
     *   可用过滤器: `{{ alert.time | format_time }}` 将 ISO 8601 时间转为 `YYYY-MM-DD HH:MM:SS`（北京时间）。**v1.4.1 起，时间在归一化阶段已自动转换为北京时间**，`format_time` 过滤器保持兼容。
+    *   页面模板编辑区提供**可用变量参考**表格，点击展开查看完整语法。
 
 ### 5.2 安全与访问控制
 
@@ -162,8 +167,10 @@
 | 命名空间 | `命名空间`、`所属空间`、`集群` |
 | 工作负载 | `资源名称`、`工作负载`、`deployment`、`statefulset` |
 | 实例 | `实例地址`、`实例`、`host` |
+| Pod | `pod`、`目标` |
 | 错误码 | `错误码`、`code` |
-| 告警级别 | `告警级别`、`severity`、`level` |
+| 告警级别 | `告警级别`、`severity`、`严重性` |
+| 告警时间 | `发生时间`、`时间`、`开始时间` |
 | 描述 | `描述`、`description` |
 
 ### 7.3 告警状态映射
@@ -177,25 +184,27 @@
 
 ### 7.4 消息模板自定义示例
 
-默认 Prometheus 模板：
-```
-**PaaS平台告警 · {{ "告警触发" if raw_data.status == "firing" else "告警恢复" }}{% if alerts|length > 1 %}（共{{ alerts|length }}条）{% endif %}**
+告警消息统一使用钉钉 **text 类型**发送，模板输出纯文本即可：
 
+```
+{% set status_cn = '告警恢复' if raw_data.status == 'resolved' else '告警触发' %}
 {% for alert in alerts %}
-告警描述：{{ alert.description }}
-{%- if alert.details.code %}
-错误码：{{ alert.details.code }}
-{%- endif %}
-告警级别：{{ alert.level }}
-所属空间：{{ alert.details.namespace }}
-工作负载：{{ alert.details.workload }}
-实例地址：{{ alert.details.instance }}
-触发时间：{{ alert.time | format_time }}
-{%- endfor %}
+{% if not loop.first %}
+---
+{% endif %}
+PaaS平台应用告警 - {{ status_cn }}
+
+【告警环境】：{{ params.env or '' }}
+【告警级别】：{% if alert.level == 'critical' %}严重{% elif alert.level == 'warning' %}警告{% else %}通知{% endif %}
+【告警时间】：{{ alert.time }}
+【告警项目】：{{ alert.details.namespace }}
+【告警应用】：{{ alert.details.container }}
+【告警容器】：{{ alert.details.pod }}
+【告警详情】：{{ alert.description }}
+{% endfor %}
 ```
 
-> 注意：钉钉 Markdown 需要使用 `\n\n`（空行）换行，单 `\n` 不生效。
-> 不支持 `---` 分割线、HTML 标签。
+> **v1.4.3 起**，所有消息统一使用钉钉 text 类型。模板中请勿使用 markdown 语法（`###`、`**` 等），直接输出纯文本即可。
 
 ---
 

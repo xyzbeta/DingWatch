@@ -125,7 +125,4 @@ async def update_profile(
     current_admin: models.Admin = Depends(get_current_admin),
     db: Session = Depends(database.get_db)
 ):
-    # Need to handle password hashing here if password is provided
-    # But crud.update_admin handles it. Wait, crud.update_admin uses passlib in previous version.
-    # I need to update crud.py first.
     return crud.update_admin(db, current_admin.id, profile)

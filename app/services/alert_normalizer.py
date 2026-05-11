@@ -92,8 +92,10 @@ def _normalize_severity(raw: Optional[str]) -> str:
 _WORKLOAD_KEYS = ("deployment", "statefulset", "daemonset", "资源名称", "工作负载", "resource_name")
 _NAMESPACE_KEYS = ("namespace", "命名空间", "所属空间", "集群")
 _INSTANCE_KEYS = ("instance", "实例地址", "实例", "host", "ip")
+_POD_KEYS = ("pod", "目标")
 _CODE_KEYS = ("code", "错误码", "error_code")
 _DESCRIPTION_KEYS = ("描述", "description", "summary")
+_SEVERITY_KEYS = ("severity", "严重性")
 
 
 def _add_standard_keys(details: dict) -> dict:
@@ -110,9 +112,17 @@ def _add_standard_keys(details: dict) -> dict:
         if k in details and details[k]:
             details.setdefault("instance", details[k])
             break
+    for k in _POD_KEYS:
+        if k in details and details[k]:
+            details.setdefault("pod", details[k])
+            break
     for k in _CODE_KEYS:
         if k in details and details[k]:
             details.setdefault("code", details[k])
+            break
+    for k in _SEVERITY_KEYS:
+        if k in details and details[k]:
+            details.setdefault("severity", details[k])
             break
     for k in _DESCRIPTION_KEYS:
         if k in details and details[k]:
@@ -202,10 +212,10 @@ def _normalize_custom_text(data: dict) -> dict:
         if not isinstance(a, dict):
             continue
         details = _add_standard_keys(dict(a))
-        raw_time = a.get("发生时间") or a.get("时间") or ""
+        raw_time = a.get("发生时间") or a.get("时间") or a.get("开始时间") or ""
         normalized_alerts.append({
             "name": a.get("规则名称") or a.get("alertname", ""),
-            "level": _normalize_severity(a.get("告警级别") or a.get("severity")),
+            "level": _normalize_severity(a.get("告警级别") or a.get("severity") or a.get("严重性")),
             "description": a.get("描述") or a.get("description", ""),
             "time": _format_alert_time(raw_time),
             "details": details,
@@ -214,7 +224,7 @@ def _normalize_custom_text(data: dict) -> dict:
     first = alerts_list[0] if alerts_list else {}
     dn = first if isinstance(first, dict) else {}
     alert_name = dn.get("规则名称") or dn.get("alertname", "")
-    alert_level = dn.get("告警级别") or dn.get("severity")
+    alert_level = dn.get("告警级别") or dn.get("severity") or dn.get("严重性")
     title = alert_name or "Custom Alert"
     if alert_name and alert_level:
         title = f"{alert_name} ({alert_level})"
@@ -279,41 +289,40 @@ def normalize_alert(alert_data: dict, format_name: str) -> dict:
 
 DEFAULT_TEMPLATES = {
     "prometheus": (
-        "### {{ title }}\n\n"
-        "{% if severity %}**Severity:** {{ severity }}\n\n{% endif %}"
+        "{{ title }}\n\n"
+        "{% if severity %}告警级别: {{ severity }}\n\n{% endif %}"
         "{{ message }}\n\n"
         "{% for alert in alerts %}"
         "---\n"
-        "**{{ alert.name }}** {% if alert.level %}({{ alert.level }}){% endif %}\n\n"
+        "【{{ alert.name }}】{% if alert.level %}({{ alert.level }}){% endif %}\n\n"
         "{{ alert.description }}\n"
-        "{% if alert.time %}Time: {{ alert.time | format_time }}{% endif %}\n"
+        "{% if alert.time %}告警时间: {{ alert.time | format_time }}{% endif %}\n"
         "{% endfor %}"
     ),
     "grafana": (
-        "### {{ title }}\n\n"
-        "{% if severity %}**Severity:** {{ severity }}\n\n{% endif %}"
+        "{{ title }}\n\n"
+        "{% if severity %}告警级别: {{ severity }}\n\n{% endif %}"
         "{{ message }}\n\n"
         "{% for alert in alerts %}"
-        "- **{{ alert.name }}**: {{ alert.description }}\n"
+        "- {{ alert.name }}: {{ alert.description }}\n"
         "{% endfor %}"
     ),
     "custom_text": (
-        "### {{ title }}\n\n"
-        "{% if severity %}**告警级别:** {{ severity }}\n\n{% endif %}"
+        "{{ title }}\n\n"
+        "{% if severity %}告警级别: {{ severity }}\n\n{% endif %}"
         "{% for alert in alerts %}"
         "{% for k, v in alert.details.items() %}"
-        "- **{{ k }}**: {{ v }}\n"
+        "{{ k }}: {{ v }}\n"
         "{% endfor %}\n"
         "{% if not loop.last %}---\n{% endif %}"
         "{% endfor %}"
     ),
     "generic_json": (
-        "### {{ title }}\n\n"
-        "{% if severity %}**Severity:** {{ severity }}\n\n{% endif %}"
+        "{{ title }}\n\n"
+        "{% if severity %}告警级别: {{ severity }}\n\n{% endif %}"
         "{% if message %}{{ message }}\n\n{% endif %}"
-        "```json\n"
-        "{{ raw_data | tojson(indent=2) }}\n"
-        "```"
+        "原始数据:\n"
+        "{{ raw_data | tojson(indent=2) }}"
     ),
 }
 

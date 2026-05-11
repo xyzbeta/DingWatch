@@ -1,4 +1,5 @@
 from fastapi import APIRouter, Depends, Request, HTTPException
+from fastapi.responses import JSONResponse
 from sqlalchemy.orm import Session
 from .. import database, crud, models
 from ..services import alert_parser, dingtalk, alert_normalizer
@@ -10,31 +11,31 @@ router = APIRouter(
     tags=["webhook"]
 )
 
-def _resolve_channel(db: Session, cid: int) -> models.NotificationChannel | None:
-    """Resolve a channel by ID, falling back to default for cid=-1."""
+def _resolve_channel_mem(cid: int, all_channels: list, default_channel_id: str | None) -> tuple:
+    """Resolve channel from preloaded data, no DB access.
+    Returns (channel, new_default_id_or_None).
+    """
     if cid == -1:
-        def_id = crud.get_system_setting(db, "default_channel_id")
         channel = None
-        if def_id:
-            channel = crud.get_notification_channel(db, int(def_id))
+        if default_channel_id:
+            cid_int = int(default_channel_id)
+            channel = next((c for c in all_channels if c.id == cid_int), None)
         if not channel:
-            all_channels = crud.get_notification_channels(db)
             for c in all_channels:
                 if c.is_enabled:
-                    channel = c
-                    crud.set_system_setting(db, "default_channel_id", str(c.id))
-                    break
-        return channel
-    return crud.get_notification_channel(db, cid)
+                    return c, c.id
+        return channel, None
+    channel = next((c for c in all_channels if c.id == cid), None)
+    return channel, None
 
 
-async def process_alert(db: Session, alert_data: dict, log_id: int):
+async def process_alert(db: Session, alert_data: dict, log_id: int, query_params: dict = None):
     try:
-        # 1. Detect format and normalize to unified structure
+        # ===== Phase 1: All DB reads =====
         source_format = alert_normalizer.detect_format(alert_data)
         unified = alert_normalizer.normalize_alert(alert_data, source_format)
+        unified["params"] = query_params or {}
 
-        # 2. Check if alert is silenced (payload level)
         silenced_by = alert_parser.check_alert_silenced(db, alert_data)
         if silenced_by:
             crud.update_request_log_status(
@@ -44,16 +45,21 @@ async def process_alert(db: Session, alert_data: dict, log_id: int):
             )
             return {"status": "silenced", "silence": silenced_by}
 
-        # 3. Load rules once, extract raw alerts
         rules = alert_parser.get_active_rules(db)
         raw_alerts = alert_parser.extract_raw_alerts(alert_data, source_format)
+        all_channels = crud.get_notification_channels(db)
+        default_channel_id = crud.get_system_setting(db, "default_channel_id")
 
-        # 4. Process each alert individually: match → render → send
+        # Release session before HTTP calls
+        db.close()
+
+        # ===== Phase 2: Matching, rendering, HTTP calls (no DB held) =====
         responses = []
         matched_rules = set()
         channel_names = set()
         all_success = True
         has_sent_attempt = False
+        new_default_channel_id = None
 
         for i, raw_alert in enumerate(raw_alerts):
             match_result = alert_parser.match_single_alert(raw_alert, rules)
@@ -66,7 +72,10 @@ async def process_alert(db: Session, alert_data: dict, log_id: int):
                 cid = -1
                 phones = []
 
-            channel = _resolve_channel(db, cid)
+            channel, new_def_id = _resolve_channel_mem(cid, all_channels, default_channel_id)
+            if new_def_id:
+                new_default_channel_id = new_def_id
+
             if not channel:
                 responses.append({"alert_index": i, "error": "Channel not found"})
                 all_success = False
@@ -119,7 +128,7 @@ async def process_alert(db: Session, alert_data: dict, log_id: int):
                 responses.append({"alert_index": i, "channel": channel.name, "error": str(e)})
                 all_success = False
 
-        # 5. Update log status
+        # ===== Phase 3: Write results with fresh session =====
         if not has_sent_attempt:
             status = "no_channel"
             error_msg = "No matched channel or default channel configured"
@@ -127,16 +136,22 @@ async def process_alert(db: Session, alert_data: dict, log_id: int):
             status = "success" if all_success else "failed"
             error_msg = None if all_success else "One or more alerts failed"
 
-        crud.update_request_log_status(
-            db,
-            log_id,
-            status,
-            response=json.dumps(responses, ensure_ascii=False),
-            error=error_msg,
-            matched_rule=",".join(matched_rules) if matched_rules else None,
-            dingtalk_request_body=None,
-            channel_name=",".join(channel_names) if channel_names else None
-        )
+        db2 = next(database.get_db())
+        try:
+            if new_default_channel_id:
+                crud.set_system_setting(db2, "default_channel_id", str(new_default_channel_id))
+            crud.update_request_log_status(
+                db2,
+                log_id,
+                status,
+                response=json.dumps(responses, ensure_ascii=False),
+                error=error_msg,
+                matched_rule=",".join(matched_rules) if matched_rules else None,
+                dingtalk_request_body=None,
+                channel_name=",".join(channel_names) if channel_names else None
+            )
+        finally:
+            db2.close()
 
         return {"status": status, "responses": responses}
 
@@ -145,7 +160,15 @@ async def process_alert(db: Session, alert_data: dict, log_id: int):
         error_msg = f"{str(e)}\n{traceback.format_exc()}"
         from ..logger import logger
         logger.error(f"Error processing webhook: {error_msg}")
-        crud.update_request_log_status(db, log_id, "failed", error=str(e))
+        # Always use a fresh session for error logging (Phase 1 session may already be closed)
+        try:
+            db_err = next(database.get_db())
+            try:
+                crud.update_request_log_status(db_err, log_id, "failed", error=str(e))
+            finally:
+                db_err.close()
+        except Exception:
+            pass
         return {"status": "error", "error": str(e)}
 
 import asyncio
@@ -165,9 +188,10 @@ async def webhook_worker():
                 # Unpack task
                 alert_data = task['alert_data']
                 log_id = task['log_id']
-                
+                query_params = task.get('query_params', {})
+
                 # Process
-                await process_alert(db, alert_data, log_id)
+                await process_alert(db, alert_data, log_id, query_params)
             finally:
                 db.close()
                 webhook_queue.task_done()
@@ -222,12 +246,21 @@ async def receive_webhook(request: Request, db: Session = Depends(database.get_d
 
     # 4. Create Log & Enqueue
     # Create log entry immediately (synchronously) to get ID
-    log_entry = crud.create_request_log(db, headers=headers_str, body=body_str)
-    
+    try:
+        log_entry = crud.create_request_log(db, headers=headers_str, body=body_str)
+    except Exception as e:
+        import traceback
+        print(f"Error creating request log: {traceback.format_exc()}")
+        return JSONResponse(status_code=500, content={"status": "error", "error": f"Database error: {str(e)}"})
+
+    # Extract query parameters for template rendering
+    query_params = dict(request.query_params)
+
     # Enqueue for background processing
     await webhook_queue.put({
         "alert_data": alert_data,
-        "log_id": log_entry.id
+        "log_id": log_entry.id,
+        "query_params": query_params
     })
     
     # Return immediately

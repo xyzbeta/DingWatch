@@ -275,7 +275,11 @@
                 <div v-if="editingChannel.type === 'dingtalk'" class="space-y-4 p-4 bg-slate-50 rounded-lg border border-slate-200">
                     <div>
                         <label class="block text-xs font-medium text-slate-500 mb-1">Webhook URL</label>
-                        <input v-model="editingConfig.webhook_url" type="text" class="w-full bg-white border border-slate-200 rounded px-3 py-1.5 text-sm outline-none focus:border-primary-500">
+                        <input v-model="editingConfig.webhook_url" type="text"
+                            class="w-full bg-white border border-slate-200 rounded px-3 py-1.5 text-sm outline-none focus:border-primary-500"
+                            placeholder="https://oapi.dingtalk.com/robot/send"
+                            @blur="extractTokenFromUrl">
+                        <p class="text-xs text-slate-400 mt-1">可直接粘贴钉钉机器人完整地址，系统会自动提取 access_token</p>
                     </div>
                     <div>
                         <label class="block text-xs font-medium text-slate-500 mb-1">Secret</label>
@@ -293,11 +297,63 @@
                         <summary class="text-sm font-medium text-slate-600 cursor-pointer hover:text-primary-600 select-none">
                             <i class="ri-code-line mr-1"></i> 消息模板 (可选)
                         </summary>
-                        <div class="mt-3 space-y-2">
+                        <div class="mt-3 space-y-3">
                             <p class="text-xs text-slate-500 leading-relaxed">
                                 使用 <a href="https://jinja.palletsprojects.com/" target="_blank" class="text-primary-600 underline">Jinja2</a> 模板语法。留空则使用格式对应的默认模板。
-                                可用变量: <code class="bg-slate-100 px-1 rounded text-xs">title</code>, <code class="bg-slate-100 px-1 rounded text-xs">severity</code>, <code class="bg-slate-100 px-1 rounded text-xs">message</code>, <code class="bg-slate-100 px-1 rounded text-xs">alerts</code>, <code class="bg-slate-100 px-1 rounded text-xs">source</code>, <code class="bg-slate-100 px-1 rounded text-xs">raw_data</code>
                             </p>
+                            <details class="text-xs">
+                                <summary class="cursor-pointer text-slate-600 hover:text-primary-600 font-medium select-none">
+                                    <i class="ri-book-2-line mr-1"></i> 可用变量参考
+                                </summary>
+                                <div class="mt-2 overflow-x-auto">
+                                    <table class="w-full border-collapse text-left">
+                                        <thead>
+                                            <tr class="border-b border-slate-200">
+                                                <th class="py-1.5 pr-3 font-medium text-slate-600">变量</th>
+                                                <th class="py-1.5 pr-3 font-medium text-slate-600">含义</th>
+                                                <th class="py-1.5 font-medium text-slate-600">用法示例</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody class="text-slate-500">
+                                            <tr class="border-b border-slate-100">
+                                                <td class="py-1.5 pr-3"><code class="bg-slate-100 px-1 rounded text-xs">{% raw %}{{ title }}{% endraw %}</code></td>
+                                                <td class="py-1.5 pr-3">告警标题</td>
+                                                <td class="py-1.5"><code class="bg-slate-100 px-1 rounded text-xs">{% raw %}【{{ title }}】{% endraw %}</code></td>
+                                            </tr>
+                                            <tr class="border-b border-slate-100">
+                                                <td class="py-1.5 pr-3"><code class="bg-slate-100 px-1 rounded text-xs">{% raw %}{{ severity }}{% endraw %}</code></td>
+                                                <td class="py-1.5 pr-3">告警级别</td>
+                                                <td class="py-1.5"><code class="bg-slate-100 px-1 rounded text-xs">{% raw %}告警级别: {{ severity }}{% endraw %}</code></td>
+                                            </tr>
+                                            <tr class="border-b border-slate-100">
+                                                <td class="py-1.5 pr-3"><code class="bg-slate-100 px-1 rounded text-xs">{% raw %}{{ message }}{% endraw %}</code></td>
+                                                <td class="py-1.5 pr-3">告警描述信息</td>
+                                                <td class="py-1.5"><code class="bg-slate-100 px-1 rounded text-xs">{% raw %}{{ message }}{% endraw %}</code></td>
+                                            </tr>
+                                            <tr class="border-b border-slate-100">
+                                                <td class="py-1.5 pr-3"><code class="bg-slate-100 px-1 rounded text-xs">{% raw %}{{ source }}{% endraw %}</code></td>
+                                                <td class="py-1.5 pr-3">告警来源格式</td>
+                                                <td class="py-1.5"><code class="bg-slate-100 px-1 rounded text-xs">{% raw %}来源: {{ source }}{% endraw %}</code></td>
+                                            </tr>
+                                            <tr class="border-b border-slate-100">
+                                                <td class="py-1.5 pr-3"><code class="bg-slate-100 px-1 rounded text-xs">{% raw %}{{ params.xxx }}{% endraw %}</code></td>
+                                                <td class="py-1.5 pr-3">URL 查询参数<br><span class="text-slate-400">例如请求 /send?env=生产</span></td>
+                                                <td class="py-1.5"><code class="bg-slate-100 px-1 rounded text-xs">{% raw %}环境: {{ params.env }}{% endraw %}</code></td>
+                                            </tr>
+                                            <tr class="border-b border-slate-100">
+                                                <td class="py-1.5 pr-3"><code class="bg-slate-100 px-1 rounded text-xs">{% raw %}{{ alerts }}{% endraw %}</code></td>
+                                                <td class="py-1.5 pr-3">告警条目列表</td>
+                                                <td class="py-1.5"><code class="bg-slate-100 px-1 rounded text-xs">{% raw %}{% for a in alerts %}...{% endfor %}{% endraw %}</code></td>
+                                            </tr>
+                                            <tr>
+                                                <td class="py-1.5 pr-3"><code class="bg-slate-100 px-1 rounded text-xs">{% raw %}{{ raw_data }}{% endraw %}</code></td>
+                                                <td class="py-1.5 pr-3">原始告警 JSON</td>
+                                                <td class="py-1.5"><code class="bg-slate-100 px-1 rounded text-xs">{% raw %}{{ raw_data.status }}{% endraw %}</code></td>
+                                            </tr>
+                                        </tbody>
+                                    </table>
+                                </div>
+                            </details>
                             <textarea v-model="editingTemplate" rows="8"
                                 class="w-full bg-white border border-slate-200 rounded-lg px-4 py-2 text-slate-800 focus:ring-2 focus:ring-primary-500 outline-none font-mono text-sm"
                                 placeholder="留空使用格式对应的默认模板"></textarea>
@@ -489,6 +545,20 @@ createApp({
             }
         }
         
+        const extractTokenFromUrl = () => {
+            const url = editingConfig.value.webhook_url || ''
+            if (!url.includes('access_token=')) return
+            try {
+                const qs = url.split('?')[1] || ''
+                const params = new URLSearchParams(qs)
+                const token = params.get('access_token')
+                if (token && !editingConfig.value.access_token) {
+                    editingConfig.value.access_token = token
+                }
+                editingConfig.value.webhook_url = url.split('?')[0]
+            } catch(e) { /* ignore parse errors */ }
+        }
+
         const testChannelConfig = async () => {
              const payload = {
                 ...editingChannel.value,
@@ -622,7 +692,7 @@ createApp({
         return {
             channels, defaultChannelId, security, apiTokens, announcement, users, teams, isSending,
             showChannelModal, isEditingChannel, editingChannel, editingConfig, editingTemplate,
-            openChannelModal, saveChannel, deleteChannel, setDefaultChannel, toggleChannel, testChannelConfig,
+            openChannelModal, saveChannel, deleteChannel, setDefaultChannel, toggleChannel, extractTokenFromUrl, testChannelConfig,
             saveSecurityConfig, createToken, deleteToken, copyToken, sendAnnouncement, exportConfig, importConfig
         }
     }

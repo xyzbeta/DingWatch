@@ -145,21 +145,14 @@ def delete_team(db: Session, team_id: int):
 
 # Rules
 def create_rule(db: Session, rule: schemas.RuleCreate):
-    # Set first condition as match_key/value for compatibility - DEPRECATED in v1.1
-    # We no longer rely on these fields, but keeping them in DB for now.
-    # primary_condition = rule.conditions[0] if rule.conditions else None
-    
     db_rule = models.Rule(
-        name=rule.name, 
+        name=rule.name,
         description=rule.description,
         is_active=rule.is_active,
         match_mode=rule.match_mode,
         priority=rule.priority,
         is_exclusive=rule.is_exclusive,
         channel_id=rule.channel_id,
-        # match_key=primary_condition.key if primary_condition else rule.match_key, 
-        # match_operator=primary_condition.operator if primary_condition else rule.match_operator,
-        # match_value=primary_condition.value if primary_condition else rule.match_value
     )
     
     if rule.conditions:
@@ -200,13 +193,7 @@ def update_rule(db: Session, rule_id: int, rule: schemas.RuleCreate):
         db_rule.priority = rule.priority
         db_rule.is_exclusive = rule.is_exclusive
         db_rule.channel_id = rule.channel_id
-        
-        # Update compatibility fields - DEPRECATED in v1.1
-        # primary_condition = rule.conditions[0] if rule.conditions else None
-        # db_rule.match_key = primary_condition.key if primary_condition else rule.match_key
-        # db_rule.match_operator = primary_condition.operator if primary_condition else rule.match_operator
-        # db_rule.match_value = primary_condition.value if primary_condition else rule.match_value
-        
+
         # Update conditions (replace all)
         db_rule.conditions = []
         if rule.conditions:

@@ -1,5 +1,4 @@
 from fastapi import APIRouter, Request, HTTPException
-from fastapi.templating import Jinja2Templates
 import markdown
 import os
 import aiofiles
@@ -8,8 +7,6 @@ router = APIRouter(
     prefix="/docs",
     tags=["docs"]
 )
-
-templates = Jinja2Templates(directory="app/templates")
 
 DOCS_DIR = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))), "docs")
 
@@ -51,7 +48,7 @@ async def view_doc(request: Request, doc_id: str):
         
     html_content = markdown.markdown(content, extensions=['fenced_code', 'tables'])
     
-    return templates.TemplateResponse(request, "doc.html", {
+    return request.app.state.templates.TemplateResponse(request, "doc.html", {
         "content": html_content,
         "title": doc_id,
         "docs_list": get_docs_list(),
@@ -63,7 +60,7 @@ async def docs_index(request: Request):
     docs = get_docs_list()
     if docs:
         return await view_doc(request, docs[0]["id"])
-    return templates.TemplateResponse(request, "doc.html", {
+    return request.app.state.templates.TemplateResponse(request, "doc.html", {
         "content": "<h1>暂无文档</h1>",
         "title": "文档中心",
         "docs_list": [],

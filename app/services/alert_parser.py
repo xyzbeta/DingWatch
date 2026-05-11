@@ -13,7 +13,7 @@ def parse_text_to_alerts(text: str) -> List[Dict[str, str]]:
     # Split by newlines
     lines = text.strip().split('\n')
     for line in lines:
-        line = line.strip()
+        line = re.sub(r'<br\s*/?>\s*$', '', line).strip()
         if not line:
             if current_alert:
                 alerts.append(current_alert)
@@ -85,7 +85,11 @@ def get_active_rules(db: Session):
     """查询所有启用的规则，按优先级降序排列，预加载 users 和 teams."""
     from sqlalchemy.orm import selectinload
     return db.query(models.Rule).filter(models.Rule.is_active == True)\
-        .options(selectinload(models.Rule.users), selectinload(models.Rule.teams).selectinload(models.Team.users))\
+        .options(
+            selectinload(models.Rule.users),
+            selectinload(models.Rule.teams).selectinload(models.Team.users),
+            selectinload(models.Rule.conditions),
+        )\
         .order_by(models.Rule.priority.desc()).all()
 
 

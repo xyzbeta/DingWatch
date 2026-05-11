@@ -1,6 +1,5 @@
 from fastapi import APIRouter, Depends, Request, HTTPException
 from sqlalchemy.orm import Session
-from typing import List
 from .. import models, schemas, database, crud
 from .webhook import process_alert # Reuse logic
 import json
@@ -15,43 +14,38 @@ async def replay_webhook(log_id: int, db: Session = Depends(database.get_db)):
     log_entry = db.query(models.RequestLog).filter(models.RequestLog.id == log_id).first()
     if not log_entry:
         raise HTTPException(status_code=404, detail="Log entry not found")
-        
+
     try:
-        # Debugging output
-        # print(f"Replaying log {log_id}. Body content: '{log_entry.body}'")
-        
-        # Check if body is "Empty/Invalid Body" or empty or None
-        # Handle cases where body might be literal None or empty string
         raw_body = log_entry.body
-        
+
         if raw_body is None or raw_body == "" or raw_body == "Empty/Invalid Body":
-             # Try to replay as empty dict if user insists
-             alert_data = {}
+            alert_data = {}
         else:
-             # Try to parse
-             try:
-                 alert_data = json.loads(raw_body)
-             except json.JSONDecodeError:
-                # If it's not valid JSON, maybe it was plain text that we want to wrap now?
-                # Or maybe it was partial?
+            try:
+                alert_data = json.loads(raw_body)
+            except json.JSONDecodeError:
                 from ..services import alert_parser
                 if raw_body.strip():
-                     parsed_alerts = alert_parser.parse_text_to_alerts(raw_body)
-                     if parsed_alerts:
-                         alert_data = {"alerts": parsed_alerts, "raw_message": raw_body}
-                     else:
-                         alert_data = {"message": raw_body}
+                    parsed_alerts = alert_parser.parse_text_to_alerts(raw_body)
+                    if parsed_alerts:
+                        alert_data = {"alerts": parsed_alerts, "raw_message": raw_body}
+                    else:
+                        alert_data = {"message": raw_body}
                 else:
-                     alert_data = {"message": raw_body}
+                    alert_data = {"message": raw_body}
 
-    except Exception as e:
+    except Exception:
         raise HTTPException(status_code=400, detail="Stored body is invalid and cannot be replayed")
-        
+
     # 重置状态为 pending
     crud.update_request_log_status(db, log_id, "pending", response=None, error=None)
-    
-    # 重新执行处理逻辑
-    return await process_alert(db, alert_data, log_id)
+
+    # 用独立 session 执行处理（process_alert 内部会自行管理 session 生命周期）
+    db2 = next(database.get_db())
+    try:
+        return await process_alert(db2, alert_data, log_id)
+    finally:
+        db2.close()
 
 @router.post("/", response_model=schemas.RequestLog)
 async def debug_webhook(request: Request, db: Session = Depends(database.get_db)):

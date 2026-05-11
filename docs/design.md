@@ -1,4 +1,4 @@
-# 系统设计文档 (v1.4.1)
+# 系统设计文档 (v1.4.3)
 
 本文档描述 DingWatch 的技术架构、核心业务逻辑及数据模型。
 
@@ -29,8 +29,8 @@ DingWatch 是基于 Python FastAPI 的轻量级告警中台，连接监控系统
     *   内置 `format_time` 过滤器（ISO 8601 → 北京时间）。
 
 5.  **DingTalk Notifier (通知器)**:
-    *   将渲染后的 Markdown 发送到钉钉 Webhook。
-    *   处理 `@手机号` 逻辑。
+    *   将渲染后的文本消息发送到钉钉 Webhook（v1.4.3 起统一使用 text 类型）。
+    *   处理 `@手机号` 和 `@所有人` 逻辑。
 
 6.  **Scheduler (调度器)**:
     *   APScheduler 每日凌晨 3 点清理过期日志。
@@ -40,40 +40,39 @@ DingWatch 是基于 Python FastAPI 的轻量级告警中台，连接监控系统
 ## 2. 告警处理流程
 
 ```
-HTTP POST /api/v1/webhook/send
+HTTP POST /api/v1/webhook/send?env=生产环境  ← query params 注入 params
          │
          ▼
-  读取 Body ──→ JSON? ──是──→ JSON 解析
+  读取 Body + Query Params ──→ JSON? ──是──→ JSON 解析
          │                      │
         否                      ▼
          │               detect_format()
          ▼                      │
   parse_text_to_alerts()        ▼
-         │               normalize_alert()
+  (strip <br />)        normalize_alert()
          │                      │
          └──────→ 入队 ←────────┘
                       │
               webhook_worker (后台)
                       │
-                      ▼
-              extract_raw_alerts() ──→ 拆分为逐条告警 (v1.4.1)
-                      │
-                      ▼
-              match_single_alert() × N ──→ 逐条规则匹配
-                      │
-                      ▼
-              check_alert_silenced() ──→ 屏蔽检查 (payload 级)
-                      │
-                 (silenced? → 结束)
-                      │ (not silenced)
-                      ▼
-              render_message() ──→ 模板渲染 (归一化数据)
-                      │
-                      ▼
-              dingtalk_client.send_markdown()
-                      │
-                      ▼
-              更新 RequestLog 状态
+          ┌───────────┴───────────┐
+          ▼                       ▼
+    Phase 1: DB 读取        extract_raw_alerts()
+    (规则/通道/屏蔽)               │
+          │                       ▼
+          ▼               match_single_alert() × N
+    db.close()            _resolve_channel_mem()
+          │                       │
+          ▼                       ▼
+    Phase 2: 无 DB        render_message()
+    (匹配/渲染/HTTP)              │
+          │                       ▼
+          ▼              dingtalk_client.send_text()
+    等待钉钉响应                   │
+          │                       ▼
+          ▼              收集结果 (Phase 2 结束)
+    Phase 3: 新 session
+    (写 RequestLog 结果)
 ```
 
 ### 关键设计决策
@@ -81,6 +80,9 @@ HTTP POST /api/v1/webhook/send
 *   **规则匹配使用原始数据**：保证用户规则配置不受归一化影响，向后兼容。
 *   **逐条告警独立匹配 (v1.4.1)**：规则匹配粒度从 payload 级拆分为逐条 alert 级。多告警 payload 中每条告警独立评估规则，匹配到的走对应通道，未匹配的走默认通道。独占模式仅在当前告警层面生效，不影响同 payload 中其他告警。
 *   **模板渲染使用归一化数据**：模板访问的是 `alert.details.namespace` 等标准键，跨格式统一。
+*   **DB session 三阶段拆分 (v1.4.3)**：Phase 1 完成所有 DB 读取后立即关闭 session，Phase 2（匹配、渲染、钉钉 HTTP 调用）无 session 占用，Phase 3 用新 session 写入结果。避免 HTTP 调用期间持有数据库锁。
+*   **URL 查询参数注入 (v1.4.3)**：请求 URL 中的 query string 自动解析为 `params` 字典注入模板上下文，用于传递告警 JSON 中缺失的环境标识等附加信息。
+*   **消息类型统一为 text (v1.4.3)**：告警、公告、屏蔽通知、通道测试全部使用钉钉 text 消息类型，移除 markdown 依赖。
 *   **时间归一化 (v1.4.1)**：`startsAt` 等时间字段在归一化阶段自动转为北京时间（Asia/Shanghai），模板中 `format_time` 过滤器保持幂等兼容。
 
 ---
@@ -129,10 +131,22 @@ HTTP POST /api/v1/webhook/send
 ### 4.2 模板层级
 
 1.  **通道自定义模板** (`NotificationChannel.message_template`)：优先级最高。
-2.  **格式默认模板** (`DEFAULT_TEMPLATES`)：按 `prometheus` / `grafana` / `custom_text` / `generic_json` 各有一套。
+2.  **格式默认模板** (`DEFAULT_TEMPLATES`)：按 `prometheus` / `grafana` / `custom_text` / `generic_json` 各有一套，均为纯文本格式。
 3.  **硬编码降级**：模板渲染异常时的最终兜底。
 
-### 4.3 自定义过滤器
+### 4.3 模板变量
+
+| 变量 | 说明 |
+|------|------|
+| `title` | 告警标题 |
+| `severity` | 告警级别（critical/warning/info） |
+| `message` | 告警描述 |
+| `source` | 告警来源格式（prometheus/grafana/custom_text/generic_json） |
+| `alerts` | 告警条目列表，每条含 `name`、`level`、`description`、`time`、`details` |
+| `raw_data` | 原始告警 JSON |
+| `params` | **v1.4.3 新增** — URL 查询参数字典，键名为 query string key |
+
+### 4.4 自定义过滤器
 
 | 过滤器 | 输入 | 输出 |
 |--------|------|------|

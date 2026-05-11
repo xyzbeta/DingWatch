@@ -11,7 +11,9 @@ if not os.path.exists(DATA_DIR):
 SQLALCHEMY_DATABASE_URL = f"sqlite:///{os.path.join(DATA_DIR, 'dingwatch.db')}"
 
 engine = create_engine(
-    SQLALCHEMY_DATABASE_URL, connect_args={"check_same_thread": False}
+    SQLALCHEMY_DATABASE_URL,
+    connect_args={"check_same_thread": False, "timeout": 30},
+    pool_pre_ping=True,
 )
 
 # Enable WAL mode for SQLite concurrency

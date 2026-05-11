@@ -33,11 +33,11 @@ def export_config(db: Session = Depends(database.get_db)):
     data = {
         "version": "1.4",
         "exported_at": datetime.now().isoformat(),
-        "channels": [schemas.NotificationChannel.from_orm(c).dict() for c in crud.get_notification_channels(db, limit=1000)],
-        "rules": [schemas.Rule.from_orm(r).dict() for r in crud.get_rules(db, limit=1000)],
-        "users": [schemas.User.from_orm(u).dict() for u in crud.get_users(db, limit=1000)],
-        "teams": [schemas.Team.from_orm(t).dict() for t in crud.get_teams(db, limit=1000)],
-        "tags": [schemas.Tag.from_orm(t).dict() for t in crud.get_tags(db)],
+        "channels": [schemas.NotificationChannel.model_validate(c).model_dump() for c in crud.get_notification_channels(db, limit=1000)],
+        "rules": [schemas.Rule.model_validate(r).model_dump() for r in crud.get_rules(db, limit=1000)],
+        "users": [schemas.User.model_validate(u).model_dump() for u in crud.get_users(db, limit=1000)],
+        "teams": [schemas.Team.model_validate(t).model_dump() for t in crud.get_teams(db, limit=1000)],
+        "tags": [schemas.Tag.model_validate(t).model_dump() for t in crud.get_tags(db)],
         # Export system settings except maybe sensitive ones? No, export all for migration.
         # "settings": ... (Need a crud for getting all settings)
     }
@@ -128,26 +128,17 @@ def send_announcement(announcement: schemas.AnnouncementCreate, db: Session = De
         raise HTTPException(status_code=400, detail="Selected channel is disabled")
 
     # 3. Send DingTalk message
-    text_content = f"### 📢 系统公告\n\n**{announcement.title}**\n\n{announcement.content}"
-    
-    # Append @mentions to text for visual highlighting in Markdown
-    if is_at_all:
-        text_content += "\n\n@所有人"
-    elif target_phones:
-        # DingTalk Markdown supports @phone for highlighting
-        mention_text = " ".join([f"@{p}" for p in target_phones])
-        text_content += f"\n\n{mention_text}"
-    
+    text_content = f"【系统公告】\n\n标题: {announcement.title}\n\n内容:\n{announcement.content}"
+
     try:
         config = json.loads(channel.config)
-        result_wrapper = dingtalk_client.send_markdown(
-            title=f"公告: {announcement.title}",
+        result_wrapper = dingtalk_client.send_text(
             text=text_content,
             webhook_url=config.get("webhook_url"),
             secret=config.get("secret"),
             access_token=config.get("access_token"),
             at_mobiles=list(target_phones),
-            at_all=is_at_all
+            at_all=is_at_all,
         )
         
         # 4. Log to RequestLog
@@ -177,6 +168,23 @@ def send_announcement(announcement: schemas.AnnouncementCreate, db: Session = De
         logger.error(f"Announcement failed: {e}", exc_info=True)
         raise HTTPException(status_code=500, detail="Failed to send announcement")
 
+def _normalize_channel_config(config_str: str) -> str:
+    """从 webhook_url 中自动提取 access_token，并清理 URL 中的 query string。"""
+    try:
+        config = json.loads(config_str)
+    except json.JSONDecodeError:
+        return config_str
+    url = config.get("webhook_url", "")
+    token = config.get("access_token", "")
+    if "access_token=" in url:
+        if not token:
+            import urllib.parse
+            qs = urllib.parse.parse_qs(urllib.parse.urlparse(url).query)
+            config["access_token"] = qs.get("access_token", [""])[0]
+        config["webhook_url"] = url.split("?")[0]
+    return json.dumps(config)
+
+
 # Channel Management APIs
 
 @router.get("/channels", response_model=List[schemas.NotificationChannel])
@@ -185,10 +193,12 @@ def get_channels(db: Session = Depends(database.get_db)):
 
 @router.post("/channels", response_model=schemas.NotificationChannel)
 def create_channel(channel: schemas.NotificationChannelCreate, db: Session = Depends(database.get_db)):
+    channel.config = _normalize_channel_config(channel.config)
     return crud.create_notification_channel(db, channel)
 
 @router.put("/channels/{channel_id}", response_model=schemas.NotificationChannel)
 def update_channel(channel_id: int, channel: schemas.NotificationChannelCreate, db: Session = Depends(database.get_db)):
+    channel.config = _normalize_channel_config(channel.config)
     updated = crud.update_notification_channel(db, channel_id, channel)
     if not updated:
         raise HTTPException(status_code=404, detail="Channel not found")
@@ -222,11 +232,10 @@ def get_default_channel(db: Session = Depends(database.get_db)):
 @router.post("/channels/test")
 def test_channel_config(channel: schemas.NotificationChannelCreate, db: Session = Depends(database.get_db)):
     try:
-        config = json.loads(channel.config)
+        config = json.loads(_normalize_channel_config(channel.config))
         # Assuming DingTalk for now
-        result_wrapper = dingtalk_client.send_markdown(
-            title="DingWatch 测试",
-            text="### 通道配置测试\n\n您的配置已生效！",
+        result_wrapper = dingtalk_client.send_text(
+            text="【DingWatch 通道测试】\n\n您的配置已生效！",
             webhook_url=config.get("webhook_url"),
             secret=config.get("secret"),
             access_token=config.get("access_token")
@@ -332,33 +341,30 @@ def _notify_silence(db: Session, silence, action: str):
         mode_label = "全部满足" if silence.match_mode == "AND" else "任一满足"
 
         if action == "create":
-            title = "告警屏蔽已启用"
             content = (
-                f"**告警屏蔽已启用**\n\n"
-                f"名称：{silence.name}\n\n"
-                f"原因：{silence.reason or '-'}\n\n"
-                f"生效时间：{_bj_time(silence.starts_at)}\n\n"
-                f"截止时间：{_bj_time(silence.ends_at)}\n\n"
-                f"匹配模式：{mode_label}\n\n"
+                f"【告警屏蔽已启用】\n\n"
+                f"名称：{silence.name}\n"
+                f"原因：{silence.reason or '-'}\n"
+                f"生效时间：{_bj_time(silence.starts_at)}\n"
+                f"截止时间：{_bj_time(silence.ends_at)}\n"
+                f"匹配模式：{mode_label}\n"
                 f"匹配条件：\n{cond_lines}\n\n"
-                f"> 匹配此条件的告警将被静默，不会推送到钉钉。"
+                f"提示：匹配此条件的告警将被静默，不会推送到钉钉。"
             )
         else:  # cancel
-            title = "告警屏蔽已取消"
             content = (
-                f"**告警屏蔽已取消**\n\n"
-                f"名称：{silence.name}\n\n"
-                f"原因：{silence.reason or '-'}\n\n"
-                f"生效时间：{_bj_time(silence.starts_at)}\n\n"
-                f"截止时间：{_bj_time(silence.ends_at)}（提前取消）\n\n"
-                f"匹配模式：{mode_label}\n\n"
+                f"【告警屏蔽已取消】\n\n"
+                f"名称：{silence.name}\n"
+                f"原因：{silence.reason or '-'}\n"
+                f"生效时间：{_bj_time(silence.starts_at)}\n"
+                f"截止时间：{_bj_time(silence.ends_at)}（提前取消）\n"
+                f"匹配模式：{mode_label}\n"
                 f"匹配条件：\n{cond_lines}\n\n"
-                f"> 告警推送已恢复正常。"
+                f"提示：告警推送已恢复正常。"
             )
 
         config = json.loads(channel.config)
-        dingtalk_client.send_markdown(
-            title=title,
+        dingtalk_client.send_text(
             text=content,
             webhook_url=config.get("webhook_url"),
             secret=config.get("secret"),

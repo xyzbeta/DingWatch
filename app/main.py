@@ -8,6 +8,8 @@ from . import crud, models, database, schemas
 from .config import settings as app_config
 from .logger import logger
 from fastapi.responses import RedirectResponse
+from apscheduler.schedulers.background import BackgroundScheduler
+from datetime import datetime, timedelta
 import json
 
 # Create tables
@@ -94,7 +96,7 @@ init_migration()
 
 app = FastAPI(
     title="DingWatch",
-    version="1.4.2",
+    version="1.4.3",
     docs_url="/api/docs",
     redoc_url=None,
     openapi_url="/api/openapi.json"
@@ -108,9 +110,6 @@ async def cache_control_middleware(request: Request, call_next):
     if request.url.path.startswith("/static"):
         response.headers["Cache-Control"] = "public, max-age=604800"
     return response
-
-from apscheduler.schedulers.background import BackgroundScheduler
-from datetime import datetime, timedelta
 
 # Scheduler for Auto-Pruning
 scheduler = BackgroundScheduler()
@@ -199,6 +198,7 @@ async def verify_api_token(request: Request, x_api_token: str = Header(None), db
 
 
 templates = Jinja2Templates(directory="app/templates")
+app.state.templates = templates
 
 # Middleware to check auth for pages
 @app.middleware("http")
@@ -229,7 +229,7 @@ def health_check():
     
     return {
         "status": "ok",
-        "version": "1.4.2",
+        "version": "1.4.3",
         "db_size_bytes": db_size,
         "db_wal_enabled": True 
     }
